@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>DTV+</title>
+    <link rel="stylesheet" href="style.css"/>
+    <script src="pages.js"></script>
+    <script src="jquery-3.7.1.min.js"></script>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script src="myclient.js"></script>
+    <script src="navigation.js"></script>
+    <style>
+      
+    </style>
+    <script>
+      $(document).ready(function() {
+        $('#content').html(LOAD_PAGE);
+        $('#content').addClass(LOAD_CLASS);
+      });
+
+      function updateUser() {
+        if ($('#content').hasClass(LOAD_CLASS)) {
+          openMain();
+        }
+
+        if ($('#content').hasClass(MAIN_CLASS)) {
+          $('#user_img').attr('src', `${DATA.base_path}/${USER_ID}.png`);
+          $('#user_name').html(DATA.profile[USER_ID]);
+        }
+
+        if ($('#content').hasClass(CEFET_CLASS)) {
+          $('#user_img').attr('src', `${DATA.base_path}/${USER_ID}.png`);
+          $('#user_name').html(DATA.profile[USER_ID]);
+          if (USER_ID == 1) {
+            $('#info').attr('src', 'media/cefet/seaInfo.png');
+            $('#tvvideo').attr('src', 'media/cefet/seaVideo.mp4');
+          }
+          else {
+            $('#info').attr('src', 'media/cefet/flowerInfo.png');
+            $('#tvvideo').attr('src', 'media/cefet/flowerVideo.mp4');
+          }
+        }
+      }
+
+      function openMain() {
+        $('#content').html(MAIN_PAGE);
+        if ($('#content').hasClass(CEFET_CLASS)) {
+          $('#tvcefet').addClass('focused');
+          client.publish('tv/service/serviceName', '', { retain : true });
+          client.publish('tv/service/serviceId', '', { retain : true });
+        }
+        else {
+          $('#tvuff').addClass('focused');
+        }
+        $('#content').removeClass();
+        $('#content').addClass(MAIN_CLASS);
+        updateUser();
+      }
+
+      function openProfile() {
+        $('#content').removeClass();
+        $('#content').addClass(PROFILE_CLASS);
+        $('#content').html(PROFILE_PAGE);
+        $(`#profile${USER_ID}`).addClass('focused');
+      }
+
+      function openCefet() {
+        $('#content').removeClass();
+        $('#content').addClass(CEFET_CLASS);
+        $('#content').html(CEFET_PAGE);
+        $('.full').css('visibility', 'hidden');
+        client.publish('tv/service/serviceName', DATA.serviceName, { retain : true });
+        client.publish('tv/service/serviceId', DATA.serviceId, { retain : true });
+        updateUser();
+      }
+
+      function setUser0() {
+        USER_ID = 0;
+        client.publish('tv/users/currentUser', '0');
+        openMain();
+      }
+
+      function setUser1() {
+        USER_ID = 1;
+        client.publish('tv/users/currentUser', '1');
+        openMain();
+      }
+
+      function setUser2() {
+        USER_ID = 2;
+        client.publish('tv/users/currentUser', '2');
+        openMain();
+      }
+
+      function fullscreen() {
+        $('#tvvideo').css('left', '0');
+        $('#tvvideo').css('top', '0');
+        $('#tvvideo').css('width', '100%');
+        $('#tvvideo').css('height', '100%');
+        $('#tvvideo').removeClass('focused');
+
+        $('.menu').css('visibility', 'hidden');
+        $('.full').css('visibility', 'visible');
+        
+        $('#infobtn').addClass('focused');
+
+        client.publish('tv/apps/100/doc/scene360/preparationEvent/actionNotification', 'starts');
+      }
+
+      function seemenu() {
+        $('#infobtn').removeClass('focused');
+        $('.full').css('visibility', 'hidden');
+        $('.menu').css('visibility', 'visible');
+        
+        $('#tvvideo').css('left', '30.57%');
+        $('#tvvideo').css('top', '3.70%');
+        $('#tvvideo').css('width', '67.50%');
+        $('#tvvideo').css('height', '67.50%');
+
+        $('#tvvideo').addClass('focused');
+
+        client.publish('tv/apps/100/doc/scene360/presentationEvent/actionNotification', 'stops');
+      }
+    </script>
+  </head>
+  <body>
+    <div id="content" class="loadscreen"></div>
+  </body>
+</html>

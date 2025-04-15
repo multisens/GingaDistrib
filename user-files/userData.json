@@ -1,0 +1,47 @@
+{
+	"users" : [
+    	{
+			"id" 					: "0",
+			"name" 					: "Anonymous",
+			"isGroup" 				: true,
+			"avatar" 				: "0.png",
+			"language" 				: "pt-br",
+			"captions"				: false,
+			"subtitle"				: false,
+			"signLanguageWindow"	: false,
+			"audioDescription" 		: false,
+			"dialogueEnhancement" 	: false,
+			"accessConsent"			: ["fe2481ea-5d44-4225-884b-504782636c3a"]
+		},
+		{
+			"id"   					: "1",
+			"name" 					: "Karen",
+			"age"  					: 20,
+			"isGroup" 				: false,
+			"gender" 				: "F",
+			"avatar" 				: "1.png",
+			"language" 				: "pt-br",
+			"captions"				: false,
+			"subtitle"				: false,
+			"signLanguageWindow"	: false,
+			"audioDescription" 		: false,
+			"dialogueEnhancement" 	: false,
+			"accessConsent"			: ["fe2481ea-5d44-4225-884b-504782636c3a"]
+		},
+    	{
+			"id" 					: "2",
+			"name" 					: "João",
+			"age"					: 20,
+			"isGroup" 				: false,
+			"gender" 				: "M",
+			"avatar" 				: "2.png",
+			"language" 				: "pt-br",
+			"captions"				: false,
+			"subtitle"				: false,
+			"signLanguageWindow"	: false,
+			"audioDescription" 		: false,
+			"dialogueEnhancement" 	: false,
+			"accessConsent"			: ["fe2481ea-5d44-4225-884b-504782636c3a"]
+		}
+	]
+}

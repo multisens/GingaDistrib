@@ -21,11 +21,12 @@ function userAPIData(t, m) {
 	if (t == 'tv/users/currentUser') {
 		if (m == null || m == '') return;
 
-		userData.current_user = uid;
+		userData.current_user = m;
     	console.log(`Set current user ${userData.current_user}.`);
 	}
     else if (t == 'tv/service/serviceId') {
 		userData.serviceId = m;
+		console.log(`Set serviceId ${userData.serviceId}.`);
 	}
 }
 

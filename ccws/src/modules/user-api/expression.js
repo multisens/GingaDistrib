@@ -57,7 +57,7 @@ function parseComparator(cmp) {
 
 exports.getAttExpression = (service, user_id, attname) => {
     let exp = `users['${service}' in accessConsent and id='${user_id}']`;
-    if (attribute != null)
+    if (attname != null)
         exp += `.${attname}`;
     return exp;
 }
@@ -65,4 +65,5 @@ exports.getAttExpression = (service, user_id, attname) => {
 
 exports.getConsentExpression = (service, path) => {
     let exp = `users['${service}' in accessConsent and avatar='${path}'] != null`;
+	return exp;
 }

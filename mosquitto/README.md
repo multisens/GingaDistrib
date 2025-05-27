@@ -117,7 +117,7 @@ The JSON vector of objects representing service information presents the attribu
 |-------------------|---------|--------------------------------------------------------------|
 | `serviceId`       | Integer | Identifies the corresponding DTV service                     |
 | `serviceName`     | String  | DTV service name                                             |
-| `serviceIcon`     | URL     | DTV service logo file path                                   |
+| `serviceIcon`     | SVG     | DTV service logo in svg                                      |
 | `initialMediaURL` | URL     | Linear service URL to be used in the bootstrap application   |
 
 ### Application Information Metadata

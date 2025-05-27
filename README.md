@@ -9,6 +9,7 @@ The **Ginga Distributed Framework (GDF)** project provides an evironment for tes
 
 * Distributed implementation of TV 3.0 components in a microservices fashion
    * App based DTV+ interface
+   * Broadcaster apps with video streaming
    * WebServices APIs
    * Ginga NCL Scheduler
 * MQTT-based
@@ -27,15 +28,18 @@ config:
 ---
 block-beta
    columns 5
-   TV["AoP"] space B["Broker\n(MQTT)"] space WS["TV 3.0 WebServices\n(Node.js)"]
+   TV["AoP\n(Node.js)"] space B["Broker\n(MQTT)"] space WS["TV 3.0 WebServices\n(Node.js)"]
    TV --> B
    B --> TV
    WS --> B
    B --> WS
    space:5
-   space:2 NCL["TV 3.0 Ginga-NCL"]
+   APP["Broadcaster Apps\n(Node.js)"] space NCL["TV 3.0 Ginga-NCL"]
    B --> NCL
    NCL --> B
+   TV --> APP
+   APP --> B
+   B --> APP
 ```
 
 # Dependencies
@@ -45,6 +49,7 @@ block-beta
 * Node JS
 * [PM2](https://pm2.keymetrics.io)
 * [NW.js](https://nwjs.io)
+* [FFmpeg](https://ffmpeg.org)
 
 
 # Execution

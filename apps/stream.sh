@@ -1,3 +1,4 @@
+#!/bin/bash
 path=$(dirname $1)
 file=$(basename $1)
 stream_out="${path}/stream/${file%.*}.m3u8"
@@ -24,9 +25,7 @@ ffmpeg  -re \
         -f hls \
         -hls_time 2 \
         -hls_list_size 5 \
-        -hls_flags delete_segments \
-        -hls_flags append_list \
-        -hls_flags omit_endlist \
+        -hls_flags delete_segments+append_list+omit_endlist \
         $stream_out
 
 # echo "Streaming ended, cleaning output files"

@@ -14,7 +14,12 @@ function receiveFrameMessage(e) {
     let m = JSON.parse(e.data);
 
     if (m.type == 'key') {
-        navigate(m.key);
+        if (typeof navigate === 'function') {
+            navigate(m.key);
+        }
+        if (typeof handleKey === 'function') {
+            handleKey(m.key);
+        }
     }
     else if (m.type == 'env') {
         DATA.environment = JSON.parse(m.data);
@@ -23,9 +28,12 @@ function receiveFrameMessage(e) {
     else if (m.type == 'message') {
         if (m.topic == DATA.topics.current_user) {
             setCurrentUser(m.message);
+            if (typeof handleUserUpdate === 'function') {
+                    handleUserUpdate(uuid);
+            }
         }
 
-        if (handleMessage === 'function') {
+        if (typeof handleMessage === 'function') {
             handleMessage(m);
         }
     }
@@ -67,9 +75,5 @@ function setCurrentUser(uuid) {
             
             break;
         }
-    }
-
-    if (handleUserUpdate === 'function') {
-            handleUserUpdate(uuid);
     }
 }

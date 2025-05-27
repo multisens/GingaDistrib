@@ -19,9 +19,22 @@ function setCurrentUser(uuid:string) {
 mqttClient.addTopicHandler(mqttClient.TOPIC.current_user, setCurrentUser);
 
 
-router.get('/', (req:Request, res:Response) => {
-    console.log('cefet page');
+const handleUserUpdate = `
+function handleUserUpdate(uuid) {
+    location.reload();
+}`;
+const fullscreen = `
+function fullscreen() {
+    window.location.href = '/cefet/fullscreen';
+}`;
+const handleKey = `
+function handleKey(k) {
+    if (k == 'Escape') {
+        window.location.href = '/cefet';
+    }
+}`;
 
+router.get('/', (req:Request, res:Response) => {
     let info_url = '/media/cefet/flowerInfo.png';
     let video_url = '/media/cefet/stream/flowerVideo.m3u8';
     if (DATA.currentUser == DATA.targetUUID) {
@@ -39,9 +52,20 @@ router.get('/', (req:Request, res:Response) => {
         mainVideoMove: 'moveup="user" movedown="connect"',
         info: info_url,
         mainVideoURL: video_url,
-        script: `function handleUserUpdate(uuid) {
-                    location.reload();
-                }`
+        script: handleUserUpdate + fullscreen
+    });
+});
+
+
+router.get('/fullscreen', (req:Request, res:Response) => {
+    let video_url = '/media/cefet/stream/flowerVideo.m3u8';
+    if (DATA.currentUser == DATA.targetUUID) {
+        video_url = '/media/cefet/stream/seaVideo.m3u8';
+    }
+
+    res.render('fullscreen', {
+        mainVideoURL: video_url,
+        script: handleUserUpdate + handleKey
     });
 });
 

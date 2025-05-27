@@ -41,6 +41,7 @@
     <script src="/jquery-3.7.1.min.js"></script>
     <script src="/navigation.js"></script>
     <script src="/bootstrap.js"></script>
+    <script src="/hls-player.js"></script>
   </head>
   <body>
     <div id="left-pane">
@@ -73,28 +74,7 @@
       postFrameMessage({ type: 'loaded' });
 
       const video = document.getElementById('tvvideo');
-      if (Hls.isSupported()) {
-        const hls = new Hls({
-          autoStartLoad: true,
-          startLevel: -1,
-        });
-
-        hls.loadSource('<%= mainVideoURL %>');
-        hls.attachMedia(video);
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          video.play().catch(e => console.error('Erro no autoplay:', e));
-        });
-        hls.on(Hls.Events.ERROR, (event, data) => {
-          console.error('Erro no HLS:', data);
-        });
-      }
-      else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        video.src = '<%= mainVideoURL %>';
-        video.play().catch(e => console.error('Erro no autoplay nativo:', e));
-      }
-      else {
-        alert('Seu navegador não suporta HLS.');
-      }
+      createHLSPlayer('<%= mainVideoURL %>', video);
 
       <%- script %>      
     </script>

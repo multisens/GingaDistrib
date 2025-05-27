@@ -1,8 +1,5 @@
 
-document.addEventListener('keydown', (e) => {
-    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter'].includes(e.key)) {
-        e.preventDefault();
-    }
+function navigate(key) {
 
     let moveup = $('.focused').attr('moveup');
     let movedown = $('.focused').attr('movedown');
@@ -10,7 +7,7 @@ document.addEventListener('keydown', (e) => {
     let moveright = $('.focused').attr('moveright');
     let select = $('.focused').attr('select');
     
-    switch(e.key) {
+    switch(key) {
         case 'ArrowUp':
             if (typeof moveup !== 'undefined') {
                 $('.focused').removeClass('focused');
@@ -41,6 +38,6 @@ document.addEventListener('keydown', (e) => {
             }
             break;
         default:
-        return; // Exit if other key pressed
+            return; // Exit if other key pressed
     }
-});
+}

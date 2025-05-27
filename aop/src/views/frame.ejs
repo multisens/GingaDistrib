@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>DTV</title>
+    <style>
+      .frame {
+        margin: 0;
+        height: 100%;
+        background-color: black;
+        z-index: 0;
+      }
+    </style>
+    <script src="/mqtt.min.js"></script>
+    <script src="/frame.js"></script>
+  </head>
+  <body class="frame">
+    <iframe id="dtvFrame" style="width: 100%; height: 100vh; border: 0;"></iframe>
+
+    <script>
+      Init('<%= url %>');
+    </script>
+  </body>
+</html>

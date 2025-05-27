@@ -74,7 +74,7 @@ function Init(url) {
 
     DATA.client.on('error', (err) => {
         console.error('MQTT Error:', err);
-        DATA.client.end();
+        // DATA.client.end();
     });
 
     document.addEventListener('keydown', (e) => {
@@ -93,7 +93,9 @@ function HandleMessage(t, m) {
     else if (t == DATA.topics.current_service) {
         let sid = parseInt(m.toString());
         DATA.environment.aop.currentService = sid;
-        DATA.frame.setAttribute('src', DATA.services[sid].initialMediaURL);
+        if (DATA.frame !== undefined && DATA.services !== undefined) {
+            DATA.frame.setAttribute('src', DATA.services[sid].initialMediaURL);
+        }
         return; // do not post
     }
     else if (t == DATA.topics.services) {

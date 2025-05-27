@@ -70,7 +70,6 @@ async function cards(views) {
 
 function script(prev) {
 	var js = "postFrameMessage({ type: 'loaded' })\n";
-	js += "focusOnCurrentService();\n";
 
 	for(i = 0; i < DATA.services.length; i++) {
 		js += `function setApp${DATA.services[i].serviceId}() {\n\t`;

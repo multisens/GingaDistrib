@@ -23,6 +23,7 @@ function receiveFrameMessage(e) {
     else if (m.type == 'env') {
         DATA.environment = JSON.parse(m.data);
         setCurrentUser(DATA.environment.aop.currentUser);
+        focusOnCurrentService();
     }
     if (m.type == 'message') {
         if (m.topic == DATA.topics.current_user) {
@@ -52,6 +53,8 @@ function setUserData(users) {
 
 
 function setCurrentUser(uuid) {
+    DATA.environment.aop.currentUser = uuid;
+
     if (DATA.environment.aop.users === undefined) return;
 
     let users = DATA.environment.aop.users;

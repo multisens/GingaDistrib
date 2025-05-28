@@ -2,8 +2,8 @@ module.exports = {
     apps : [
         {
             name        : 'mosquitto',
-            script      : '/opt/homebrew/sbin/mosquitto',
-            args        : '-c /opt/homebrew/etc/mosquitto/mosquitto.conf',
+            script      : '/usr/bin/mosquitto',
+            args        : '-c /etc/mosquitto/mosquitto.conf',
             interpreter : 'none',
             wait_ready  : true,
             autorestart : false
@@ -20,7 +20,7 @@ module.exports = {
                 SERVICE_NAME    : 'TV Cefet',
                 SERVICE_ID      : 'fe2481ea-5d44-4225-884b-504782636c3a', // Mesmo do código do Guaraná
                 CURRENT_APP     : '100',
-                APP_PATH        : '/Users/joel/Coding/DemoGuarana/sea360'
+                APP_PATH        : '/home/mota/Documents/uff/tcc/GuaranaDemo/sea360'
             }
         },
         {
@@ -34,8 +34,8 @@ module.exports = {
                 PORT            : 44642,
                 SERVER_URL      : 'localhost',
                 NODE_SRC        : 'sea.ncl360',
-                USER_DATA_FILE  : '/Users/joel/Coding/DemoGuarana/user-files/userData.json',
-                USER_THUMBS     : '/Users/joel/Coding/DemoGuarana/user-files/thumbs'
+                USER_DATA_FILE  : '/home/mota/Documents/uff/tcc/GuaranaDemo/user-files/userData.json',
+                USER_THUMBS     : '/home/mota/Documents/uff/tcc/GuaranaDemo/user-files/thumbs'
             }
         },
         {
@@ -45,7 +45,7 @@ module.exports = {
         },
         {
             name        : 'topic-explorer',
-            script      : '/Users/joel/Applications/nwjs.app/Contents/MacOS/nwjs',
+            script      : '/home/mota/Applications/nwjs-v0.100.0-linux-x64/nw',
             args        : './mqtt-explorer',
             interpreter : 'none',
             autorestart : false,
@@ -55,7 +55,7 @@ module.exports = {
         },
         {
             name        : 'remote-device',
-            script      : '/Users/joel/Applications/nwjs.app/Contents/MacOS/nwjs',
+            script      : '/home/mota/Applications/nwjs-v0.100.0-linux-x64/nw',
             args        : './remote-device',
             interpreter : 'none',
             autorestart : false,
@@ -65,7 +65,7 @@ module.exports = {
         },
         {
             name        : 'dtv-simmulator',
-            script      : '/Users/joel/Applications/nwjs.app/Contents/MacOS/nwjs',
+            script      : '/home/mota/Applications/nwjs-v0.100.0-linux-x64/nw',
             args        : './dtv',
             interpreter : 'none',
             autorestart : false,

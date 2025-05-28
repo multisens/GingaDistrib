@@ -1,5 +1,5 @@
 const DATA = {
-  base_path : '/Users/joel/Coding/DemoGuarana/user-files/thumbs',
+  base_path : '/home/mota/Documents/uff/tcc/GuaranaDemo/user-files/thumbs',
   profile : [
     'Without<br/>profile',
     'Karen',

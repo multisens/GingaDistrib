@@ -1,10 +1,18 @@
-const express = require('express');
-const rdController = require('./controller');
-const router = express.Router();
+import express, { Router } from 'express';
+import controller from './controller';
+const router: Router = express.Router();
 
-/* Remode media player API */
-/* 8.3.9 */
-router.post('/', rdController.POSTRemoteDevice);
-router.delete('/:handle', rdController.DELETERemoteDevice);
 
-module.exports = router;
+/*
+    C.6.15.2 Registering a remote device
+*/
+router.post('/', controller.POSTRemoteDevice);
+
+
+/*
+    C.6.15.3 Deregistering a remote device
+*/
+router.delete('/:handle', controller.DELETERemoteDevice);
+
+
+export default router;

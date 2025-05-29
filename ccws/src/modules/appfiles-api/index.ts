@@ -1,9 +1,10 @@
-const express = require('express');
-const appfilesController = require('./controller');
-const router = express.Router();
+import express, { Router } from 'express';
+import controller from './controller';
+const router:Router = express.Router();
 
-/* Application Files API */
-/* 8.3.9 */
-router.get('/:appid/files', appfilesController.GETAppFile);
+/*
+    C.6.4.7 Accessing files of a Broadcaster Application
+*/
+router.get('/:appid/files', controller.GETAppFile);
 
-module.exports = router;
+export default router;

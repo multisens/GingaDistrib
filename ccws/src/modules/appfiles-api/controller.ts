@@ -1,26 +1,29 @@
-const fs = require('fs');
-const appfilesService = require('./service');
+import { Request, Response } from 'express';
+import fs from 'fs';
+import service, { FileData } from './service';
 
-exports.GETAppFile = (req, res, next) => {
-    if (!appfilesService.validateAppId(req.params.appid) || Object.keys(req.query).length == 0) {
+
+function GETAppFile(req:Request, res:Response) {
+    if (!service.validateAppId(req.params.appid) || Object.keys(req.query).length == 0 || req.query.path === undefined) {
 		res.status(400).json({
 			error : 305,
 			description : "DTV resource not found"
 		});
 	}
-	file_data = appfilesService.getFile(req.query.path);
+
+	let file_data = service.getFile(req.query.path as string);
 	
 	if (file_data.type != 'video' && file_data.type != 'audio') {
 		replyFile(res, file_data);
 	}
-	else {
-		const range = req.headers.range;
+	else if (req.headers.range !== undefined) {
+		const range:string = req.headers.range;
 		replyStream(res, range, file_data);
 	}
 };
 
 
-function replyFile(res, file_data) {
+function replyFile(res:Response, file_data:FileData) {
 	var file = fs.readFileSync(file_data.path, 'binary');
 	res.setHeader('Content-Length', file_data.size);
 	res.setHeader('Content-Type', file_data.mime);
@@ -29,7 +32,7 @@ function replyFile(res, file_data) {
 }
 
 
-function replyStream(res, range, file_data) {
+function replyStream(res:Response, range:string, file_data:FileData) {
 	if (range) {
 		const parts = range.replace(/bytes=/, "").split("-");
 		const start = parseInt(parts[0], 10);
@@ -53,3 +56,6 @@ function replyStream(res, range, file_data) {
 		fs.createReadStream(file_data.path).pipe(res);
 	}
 }
+
+
+export default { GETAppFile }

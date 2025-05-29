@@ -1,39 +1,99 @@
-const path = require('path');
-const fs = require('fs');
+import fs from 'fs';
+import mqttClient, { TOPICS } from '../../mqtt-client';
+import path from 'path';
 
-var appData = {
-	id : null,
-	url : null
+
+type AppData = {
+	sid: string,
+	id: string,
+    url: string
 }
 
-
-function setAppId(appid) {
-    if (appid == null) return;
-
-	appData.id = appid;
-    console.log(`Set application id ${appData.id}.`);
+export type FileData = {
+	size: number,
+	mime: string,
+	type: string,
+	name: string,
+	path: string
 }
 
-
-function setAppBaseURL(path) {
-    if (path == null) return;
-
-	appData.url = path;
-    console.log(`Set application location ${appData.url}.`);
+const data:AppData = {
+	sid: '',
+	id : '',
+	url : ''
 }
 
+const MIMES = new Map<string, string>([
+	['.mpeg', 'video/mpeg'],
+	['.mp4', 'video/mp4'],
+	['.mp3', 'audio/mpeg'],
+	['.ogg', 'audio/ogg'],
+	['.txt', 'text/plain'],
+	['.jpeg', 'image/jpeg'],
+	['.jpg', 'image/jpeg'],
+	['.png', 'image/png'],
+	['.obj', 'model/obj']
+]);
 
-function validateAppId(appid) {
-	return appid == appData.id;
+const TYPES = new Map<string, string>([
+	['.mpeg', 'video'],
+	['.mp4', 'video'],
+	['.mp3', 'audio'],
+	['.ogg', 'audio'],
+	['.txt', 'text'],
+	['.jpeg', 'image'],
+	['.jpg', 'image'],
+	['.png', 'image'],
+	['.obj', 'model']
+]);
+
+
+function setAppId(appid: string): void {
+	if (!appid) return;
+	if (data.id == appid) return;
+
+	let t = mqttClient.parseTopic(TOPICS.app_path, { serviceId : data.sid, appId : data.id });
+	mqttClient.removeTopicHandler(t, setAppBaseURL);
+
+	t = mqttClient.parseTopic(TOPICS.app_path, { serviceId : data.sid, appId : appid });
+	mqttClient.addTopicHandler(t, setAppBaseURL);
+
+	data.id = appid;
 }
 
+function setAppBaseURL(path: string): void {
+    if (!path) return;
 
-function getFile(fpath) {
-	var file_path = path.join(appData.url, fpath);
-	var file_name = path.parse(file_path).base;
-	var file_ext = path.extname(file_name);
+	data.url = path;
+}
+
+function currentService(sid: string): void {
+	if (!sid) return;
+	if (sid == data.sid) return;
 	
-	var stat = fs.statSync(file_path);
+	let t = mqttClient.parseTopic(TOPICS.current_app, { serviceId : data.sid });
+	mqttClient.removeTopicHandler(t, setAppId);
+
+	t = mqttClient.parseTopic(TOPICS.current_app, { serviceId : sid });
+	mqttClient.addTopicHandler(t, setAppId);
+
+	data.sid = sid;
+}
+
+mqttClient.addTopicHandler(TOPICS.current_service, currentService);
+
+
+function validateAppId(appid: string): boolean {
+	return appid == data.id;
+}
+
+
+function getFile(fpath: string): FileData {
+	const file_path = path.join(data.url, fpath);
+	const file_name = path.parse(file_path).base;
+	const file_ext = path.extname(file_name);
+	
+	const stat = fs.statSync(file_path);
 	
 	return {
 		size: stat.size,
@@ -45,83 +105,23 @@ function getFile(fpath) {
 }
 
 
-function GetMime(file_ext) {
-	// video
-	if (file_ext == '.mpeg') {
-		return 'video/mpeg';
+function GetMime(file_ext: string): string {
+	if (MIMES.has(file_ext)) {
+		return MIMES.get(file_ext) as string;
 	}
-	else if (file_ext == '.mp4') {
-		return 'video/mp4';
-	}
-	// audio
-	else if (file_ext == '.mp3') {
-		return 'audio/mpeg';
-	}
-	else if (file_ext == '.ogg') {
-		return 'audio/ogg';
-	}
-	// text
-	else if (file_ext == '.txt') {
-		return 'text/plain';
-	}
-	// images
-	else if (file_ext == '.jpeg' || file_ext == '.jpg') {
-		return 'image/jpeg';
-	}
-	else if (file_ext == '.png') {
-		return 'image/png';
-	}
-	// 3D object
-	else if (file_ext == '.obj') {
-		return 'model/obj';
-	}
-	// others
 	else {
 		return 'application/octet-stream';
 	}
 }
 
 
-function GetType(file_ext) {
-	// video
-	if (file_ext == '.mpeg') {
-		return 'video';
+function GetType(file_ext: string): string {
+	if (TYPES.has(file_ext)) {
+		return TYPES.get(file_ext) as string;
 	}
-	else if (file_ext == '.mp4') {
-		return 'video';
-	}
-	// audio
-	else if (file_ext == '.mp3') {
-		return 'audio';
-	}
-	else if (file_ext == '.ogg') {
-		return 'audio';
-	}
-	// text
-	else if (file_ext == '.txt') {
-		return 'text';
-	}
-	// images
-	else if (file_ext == '.jpeg' || file_ext == '.jpg') {
-		return 'image';
-	}
-	else if (file_ext == '.png') {
-		return 'image';
-	}
-	// 3D object
-	else if (file_ext == '.obj') {
-		return 'model';
-	}
-	// others
 	else {
 		return 'application';
 	}
 }
 
-
-module.exports = {
-	setAppId,
-    setAppBaseURL,
-	validateAppId,
-	getFile
-}
+export default { validateAppId, getFile }

@@ -1,43 +1,44 @@
-const fs = require('fs');
-const userService = require('./service');
+import { Request, Response } from 'express';
+import service from './service';
+import { UserId } from './types';
 
 
-exports.GETCurrentUser = (req, res, next) => {
-    res.status(200).json({ id : userService.getCurrentUser() });
-};
+function GETCurrentUser(req: Request, res: Response): void {
+    res.status(200).json({ id : service.getCurrentUser() });
+}
 
-
-exports.POSTCurrentUser = (req, res, next) => {
-    const body = req.body;
+function POSTCurrentUser(req: Request, res: Response): void {
+    const body: UserId = req.body;
     if (!body) {
         res.status(400).json({
 			error : 106,
 			description : 'API unavailable for this runtime environment'
 		});
     }
-    userService.setCurrentUser(body.id);
+    service.setCurrentUser(body.id);
     res.sendStatus(200);
-};
+}
 
-
-exports.POSTUserList = (req, res, next) => {
-	userService.getUserList(req.body)
+function POSTUserList(req: Request, res: Response): void {
+	service.getUserList(req.body)
 	.then((response) => { res.status(200).json(response) })
-};
+}
 
-
-exports.GETUserAttribute = (req, res, next) => {
-	var uid = req.params.userid;
-	var atname = null;
+function GETUserAttribute(req: Request, res: Response): void {
+	const uuid = req.params.userid;
+	
 	if (Object.keys(req.query).length > 0) {
-		atname = req.query.attribute;
+		const atname = req.query.attribute as string;
+		service.getUserAttribute(uuid, atname)
+		.then((response) => { res.status(200).json(response) })
 	}
-	userService.getUserAttribute(uid, atname)
-	.then((response) => { res.status(200).json(response) })
-};
+	else {
+		service.getUserAttribute(uuid)
+		.then((response) => { res.status(200).json(response) })
+	}
+}
 
-
-exports.GETUserFile = (req, res, next) => {
+function GETUserFile(req: Request, res: Response): void {
     if (Object.keys(req.query).length == 0) {
 		res.status(400).json({
             error : 105,
@@ -45,7 +46,8 @@ exports.GETUserFile = (req, res, next) => {
         });
 	}
 
-	userService.checkConsent(req.query.path)
+	const path = req.query.path as string;
+	service.checkConsent(path)
 	.then((result) => {
 		if (!result) {
 			res.status(400).json({
@@ -54,7 +56,7 @@ exports.GETUserFile = (req, res, next) => {
             });
 		}
 		else {
-			file_data = userService.getFile(req.query.path);
+			const file_data = service.getFile(path);
 		
 			res.setHeader('Content-Length', file_data.size);
 			res.setHeader('Content-Type', file_data.mime);
@@ -63,4 +65,7 @@ exports.GETUserFile = (req, res, next) => {
 			res.end();
 		}
 	})
-};
+}
+
+
+export default { GETCurrentUser, POSTCurrentUser, POSTUserList, GETUserAttribute, GETUserFile }

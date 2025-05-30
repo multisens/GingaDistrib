@@ -1,76 +1,84 @@
-const path = require('path');
-const fs = require('fs');
-const jsonata = require('jsonata');
-const exp = require('./expression');
-require('dotenv').config();
+import * as dotenv from 'dotenv';
+import exp from './expression';
+import fs from 'fs';
+import jsonata from 'jsonata';
+import mqttClient, { TOPICS } from '../../mqtt-client';
+import path from 'path';
+import { Expression, UserAttributes, UsersIdList } from './types';
+dotenv.config();
 
-var mqttClient = null;
-var userData = {
-	current_user : null,
-	serviceId : null,
-	users : JSON.parse(fs.readFileSync(process.env.USER_DATA_FILE))
+
+type UserData = {
+	currentUser: string,
+	currentService: string,
+	users: string
+}
+
+type FileData = {
+	size: number,
+	mime: string,
+	name: string,
+	file: string
+}
+
+const data: UserData = {
+	currentUser : '',
+	currentService : '',
+	users : JSON.parse(fs.readFileSync(process.env.USER_DATA_FILE as string, 'utf-8'))
 }
 
 
-function setMqttClient(c) {
-	mqttClient = c;
+function updateCurrentUser(m: string): void {
+	data.currentUser = m;
+	console.log(`Set current user ${data.currentUser}.`);
 }
 
+mqttClient.addTopicHandler(TOPICS.current_user, updateCurrentUser);
 
-function userAPIData(t, m) {
-	if (t == 'tv/users/currentUser') {
-		if (m == null || m == '') return;
 
-		userData.current_user = m;
-    	console.log(`Set current user ${userData.current_user}.`);
-	}
-    else if (t == 'tv/service/serviceId') {
-		userData.serviceId = m;
-		console.log(`Set serviceId ${userData.serviceId}.`);
-	}
+function updateCurrentService(m: string): void {
+	data.currentService = m;
+	console.log(`Set current user ${data.currentService}.`);
 }
 
+mqttClient.addTopicHandler(TOPICS.current_user, updateCurrentService);
 
-function getCurrentUser() {
-	return userData.current_user;
+
+function getCurrentUser(): string {
+	return data.currentUser;
 }
 
+function setCurrentUser(uuid: string): void {
+	data.currentUser = uuid;
+	console.log(`Set current user ${data.currentUser}.`);
 
-function setCurrentUser(uid) {
-	userData.current_user = uid;
-	console.log(`Set current user ${userData.current_user}.`);
-
-	mqttClient.publish('tv/users/currentUser', userData.current_user, { retain : true });
+	mqttClient.publish(TOPICS.current_user, data.currentUser, true);
 }
 
-
-async function getUserList(body) {
-	let expression = jsonata(exp.getUsersExpression(body, userData.serviceId));
-	let result = await expression.evaluate(userData.users);
+async function getUserList(body: Expression): Promise<UsersIdList> {
+	let expression = jsonata(exp.getUsersExpression(body, data.currentService));
+	let result = await expression.evaluate(data.users);
 	return result;
 }
 
-
-async function getUserAttribute(uid, atname) {
-	let expression = jsonata(exp.getAttExpression(userData.serviceId, uid, atname));
-	let result = await expression.evaluate(userData.users);
+async function getUserAttribute(uuid: string, atname?: string): Promise<UserAttributes> {
+	let expression = jsonata(exp.getAttExpression(data.currentService, uuid, atname));
+	let result = await expression.evaluate(data.users);
 	return result;
 }
 
-
-async function checkConsent(fpath) {
-	let expression = jsonata(exp.getConsentExpression(userData.serviceId, fpath));
-	let result = await expression.evaluate(user_data);
+async function checkConsent(fpath: string): Promise<boolean> {
+	let expression = jsonata(exp.getConsentExpression(data.currentService, fpath));
+	let result = await expression.evaluate(data.users);
 	return result;
 }
 
-
-function getFile(fpath) {
-	var file_path = path.join(process.env.USER_THUMBS, fpath);
-	var file_name = path.parse(file_path).base;
+function getFile(fpath: string): FileData {
+	const file_path = path.join(process.env.USER_THUMBS as string, fpath);
+	const file_name = path.parse(file_path).base;
 	
-	var stat = fs.statSync(file_path);
-	var file = fs.readFileSync(file_path, 'binary');
+	const stat = fs.statSync(file_path);
+	const file = fs.readFileSync(file_path, 'binary');
 	
 	return {
 		size: stat.size,
@@ -80,8 +88,7 @@ function getFile(fpath) {
 	}
 }
 
-
-function GetMime(file_ext) {
+function GetMime(file_ext: string): string {
 	// images
 	if (file_ext == '.jpeg' || file_ext == '.jpg') {
 		return 'image/jpeg';
@@ -96,13 +103,4 @@ function GetMime(file_ext) {
 }
 
 
-module.exports = {
-	setMqttClient,
-	userAPIData,
-	getCurrentUser,
-	setCurrentUser,
-	getUserList,
-	getUserAttribute,
-	checkConsent,
-	getFile
-}
+export default { getCurrentUser, setCurrentUser, getUserList, getUserAttribute, checkConsent, getFile }

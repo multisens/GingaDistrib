@@ -1,27 +1,27 @@
-const express = require('express');
+import express, { Application, Request, Response, NextFunction } from 'express';
 
 // import modules routes
-const dtvAPI = require('./modules/dtv-api');
-const appfilesAPI = require('./modules/appfiles-api');
-const userAPI = require('./modules/user-api');
-const remotedevAPI = require('./modules/remotedev-api');
+import dtvAPI  from './modules/dtv-api';
+import appfilesAPI from './modules/appfiles-api';
+import userAPI from './modules/user-api';
+import remotedevAPI from './modules/remotedevice-api';
 
 // middleware configuration
-const app = express();
+const app:Application = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended : false}));
 
 // allowing local clients to connect to the server
-app.use(function (req, res, next) {
+app.use(function (req:Request, res:Response, next:NextFunction) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
     res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
     next();
 });
 
-app.use('/dtv', dtvAPI);
-app.use('/dtv/current-service/apps', appfilesAPI);
-app.use('/dtv/current-service/user-api', userAPI);
-app.use('/dtv/remote-device', remotedevAPI);
+app.use('/tv3', dtvAPI);
+app.use('/tv3/current-service/apps', appfilesAPI);
+app.use('/tv3/current-service/users', userAPI);
+app.use('/tv3/remote-device', remotedevAPI);
 
-module.exports = app;
+export default app;

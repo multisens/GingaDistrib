@@ -2,13 +2,17 @@ import { Expression } from './types';
 
 
 function getUsersExpression(body: Expression, service: string): string {
-	let exp = `users['${service}' in accessConsent and ${parseExpression(body)}]{ 'users': [$.{ 'id': id }] }`;
+	let exp = `users['${service}' in accessConsent`;
+	if (body) {
+		exp += ` and ${parseExpression(body)}`;
+	}	
+	exp += "]{ 'users': [$.{ 'id': id }] }";
 	return exp;
 }
 
 function parseExpression(exp: Expression): string {
 	if ('attribute' in exp) {
-		return exp.attribute + exp.comparator + parseValue(exp.attribute, exp.value);
+		return exp.attribute + parseComparator(exp.comparator) + parseValue(exp.attribute, exp.value);
 	}
 	else if ('and' in exp) {
 		return parseArray(exp.and, 'and');
@@ -37,6 +41,15 @@ function parseArray(arr: Expression[], op: string): string {
 	}
 	exp += ')';
 	return exp;
+}
+
+function parseComparator(cmp: string) {
+	if (cmp == 'eq') { return '='; }
+	else if (cmp == 'neq') { return '!='; }
+	else if (cmp == 'lt') { return '<'; }
+	else if (cmp == 'lte') { return '<='; }
+	else if (cmp == 'gt') { return '>'; }
+	else if (cmp == 'gte') { return '>='; }
 }
 
 function getAttExpression(service: string, user_id: string, attname?: string): string {

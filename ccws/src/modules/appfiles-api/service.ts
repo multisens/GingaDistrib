@@ -52,10 +52,12 @@ function setAppId(appid: string): void {
 	if (!appid) return;
 	if (data.id == appid) return;
 
-	let t = mqttClient.parseTopic(TOPICS.app_path, { serviceId : data.sid, appId : data.id });
-	mqttClient.removeTopicHandler(t, setAppBaseURL);
+	if (data.id) {
+		let t = mqttClient.parseTopic(TOPICS.app_path, { serviceId : data.sid, appId : data.id });
+		mqttClient.removeTopicHandler(t, setAppBaseURL);
+	}
 
-	t = mqttClient.parseTopic(TOPICS.app_path, { serviceId : data.sid, appId : appid });
+	let t = mqttClient.parseTopic(TOPICS.app_path, { serviceId : data.sid, appId : appid });
 	mqttClient.addTopicHandler(t, setAppBaseURL);
 
 	data.id = appid;
@@ -84,7 +86,7 @@ mqttClient.addTopicHandler(TOPICS.current_service, currentService);
 
 
 function validateAppId(appid: string): boolean {
-	return appid == data.id;
+	return appid === data.id;
 }
 
 

@@ -1,13 +1,13 @@
 import { ReqBody } from '../remotedevice-api/service';
 import RemoteDevice from './remote-device';
-import { WebSocket } from 'ws';
+import { WebSocket, WebSocketServer } from 'ws';
 
 
 const devices = new Map<string, RemoteDevice>();
 
 
-function addRemoteDevice(body: ReqBody, handle: string, ws: WebSocket): void {
-    devices.set(handle, new RemoteDevice(body, handle, ws));
+function addRemoteDevice(body: ReqBody, handle: string, wss: WebSocketServer): void {
+    devices.set(handle, new RemoteDevice(body, handle, wss));
 }
 
 function removeRemoteDevice(handle: string): boolean {

@@ -11,7 +11,7 @@ dotenv.config();
 type UserData = {
 	currentUser: string,
 	currentService: string,
-	users: string
+	users: Object
 }
 
 type FileData = {
@@ -38,10 +38,10 @@ mqttClient.addTopicHandler(TOPICS.current_user, updateCurrentUser);
 
 function updateCurrentService(m: string): void {
 	data.currentService = m;
-	console.log(`Set current user ${data.currentService}.`);
+	console.log(`Set current service ${data.currentService}.`);
 }
 
-mqttClient.addTopicHandler(TOPICS.current_user, updateCurrentService);
+mqttClient.addTopicHandler(TOPICS.current_service, updateCurrentService);
 
 
 function getCurrentUser(): string {
@@ -50,7 +50,6 @@ function getCurrentUser(): string {
 
 function setCurrentUser(uuid: string): void {
 	data.currentUser = uuid;
-	console.log(`Set current user ${data.currentUser}.`);
 
 	mqttClient.publish(TOPICS.current_user, data.currentUser, true);
 }

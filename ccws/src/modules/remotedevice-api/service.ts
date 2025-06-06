@@ -27,16 +27,7 @@ function createWebSocket(body: ReqBody): Response {
         console.log(`WebSocket server is running on port ${port}`);
     });
 
-    wsServer.on('connection', function (connection: WebSocket) {
-        console.log(`${uuid} connected.`);
-		
-        connection.on('close', () => {
-            console.log(`${uuid} disconnected.`);
-        });
-		
-        manager.addRemoteDevice(body, uuid, connection);
-    });
-	
+    manager.addRemoteDevice(body, uuid, wsServer);
 	console.log(`Client ${uuid} registered.`);
     
     const url = `ws://${process.env.SERVER_URL}:${port}`

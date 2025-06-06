@@ -8,11 +8,6 @@ const router: Router = express.Router();
 router.post('/', controller.POSTUserList);
 
 /*
-    C.6.14.2 Obtaining a set of user attributes
-*/
-router.get('/:userid', controller.GETUserAttribute);
-
-/*
     C.6.14.3 Obtaining the current user
 */
 router.get('/current-user', controller.GETCurrentUser);
@@ -26,5 +21,10 @@ router.post('/current-user', controller.POSTCurrentUser);
     C.6.14.6 Obtaining a user file content
 */
 router.get('/files', controller.GETUserFile);
+
+/*
+    C.6.14.2 Obtaining a set of user attributes
+*/
+router.get('/:userid', controller.GETUserAttribute);
 
 export default router

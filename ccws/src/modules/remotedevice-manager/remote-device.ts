@@ -1,7 +1,7 @@
 import mqttClient from '../../mqtt-client';
 import { ReqBody } from '../remotedevice-api/service';
 import { Action, EventType, type ActionMetadata, type NodeMetadata, type TransitionMetadata } from './types';
-import { WebSocket } from 'ws';
+import { WebSocket, WebSocketServer } from 'ws';
 
 
 export default class RemoteDevice {
@@ -9,37 +9,41 @@ export default class RemoteDevice {
     protected deviceClass: string;
     protected supportedTypes: string[];
 
-    protected ws: WebSocket;
-    protected topic_prefix: string;
+    protected ws?: WebSocket;
+    protected wss: WebSocketServer;
 
-    protected appId: string;
-    protected nodeId: string;
-    protected nodeSrc: string;
-    protected nodeType: string;
+    protected subscribed: boolean;
+    protected topic_prefix?: string;
+
+    protected appId?: string;
+    protected nodeId?: string;
+    protected nodeSrc?: string;
+    protected nodeType?: string;
 
 
-    constructor(body: ReqBody, handle: string, ws: WebSocket) {
-        this.handle = handle;
-        this.ws = ws;
+    constructor(body: ReqBody, handle: string, wss: WebSocketServer) {
         this.deviceClass = body.deviceClass;
         this.supportedTypes = body.supportedTypes;
+        this.handle = handle;
+        this.wss = wss;
         
-        this.topic_prefix = '';
-        this.appId = '';
-        this.nodeId = '';
-        this.nodeSrc = '';
-        this.nodeType = '';
+        this.subscribed = false;
 
-        ws.on('message', (message) => this.receiveRDMessage(message));
-        // mqttClient.addTopicHandler(`${this.topic_prefix}/#`, this.receiveTopicMessage);
+        wss.on('connection', this.onWebSocketConnection);
+        // TODO mqttClient.addTopicHandler(`${this.topic_prefix}/#`, this.onMqttMessage);
     }
 
-    public terminate(): void {
-        this.ws.close();
-        mqttClient.removeTopicHandler(`${this.topic_prefix}/#`, this.receiveTopicMessage);
+    protected onWebSocketConnection(ws: WebSocket): void {
+        console.log(`${this.handle} connected.`);
+
+        ws.on('close', () => {
+            console.log(`${this.handle} disconnected.`);
+        });
+
+        ws.on('message', (message) => this.onWebSocketMessage(message));
     }
 
-    protected receiveRDMessage(message: any): void {
+    protected onWebSocketMessage(message: any): void {
         const msg: string = message.toString();
         console.log(`Client ${this.handle} sent message\n ${msg}\n\n`);
     
@@ -53,7 +57,16 @@ export default class RemoteDevice {
         }
     }
 
-    protected receiveTopicMessage(m: string, t?: string): void {
+    protected sendWebSocketMessage(data: NodeMetadata | ActionMetadata) {
+        if (this.ws) {
+            this.ws.send(JSON.stringify(data));
+        }
+        else {
+            // TODO: store message for later
+        }
+    }
+
+    protected onMqttMessage(m: string, t?: string): void {
         if (!t) return;
         
         try {
@@ -61,18 +74,18 @@ export default class RemoteDevice {
 
             if (parsed.eventType == EventType.preparation && m == Action.start) {
                 let data: NodeMetadata = {
-                    nodeId : this.nodeId,
-                    nodeSrc : this.nodeSrc,
-                    appId : this.appId,
-                    type : this.nodeType
+                    nodeId : this.nodeId as string,
+                    nodeSrc : this.nodeSrc as string,
+                    appId : this.appId as string,
+                    type : this.nodeType as string
                 };
 
-                this.ws.send(JSON.stringify(data));
+                this.sendWebSocketMessage(data);
             }
             else {
                 let data: ActionMetadata = {
-                    nodeId : this.nodeId,
-                    appId : this.appId,
+                    nodeId : this.nodeId as string,
+                    appId : this.appId as string,
                     eventType : parsed.eventType as EventType,
                     action : parsed.action as Action
                 };
@@ -80,7 +93,7 @@ export default class RemoteDevice {
                 if (parsed.label)
                     data.label = parsed.label;
 
-                this.ws.send(JSON.stringify(data));
+                this.sendWebSocketMessage(data);
             }
         }
         catch (e) {
@@ -89,7 +102,7 @@ export default class RemoteDevice {
     }
 
     protected publishTransitionMetadata(data: TransitionMetadata): void {
-        if (!this.topic_prefix) {
+        if (!this.subscribed) {
             console.error(`No MQTT topic prefix defined for device ${this.handle}`);
             return;
         }
@@ -183,5 +196,15 @@ export default class RemoteDevice {
         }
 
         result['action'] = m;
+    }
+
+    public terminate(): void {
+        if (this.ws) {
+            this.ws.close();
+        }
+        this.wss.close();
+        if (this.subscribed) {
+            mqttClient.removeTopicHandler(`${this.topic_prefix}/#`, this.onMqttMessage);
+        }
     }
 }

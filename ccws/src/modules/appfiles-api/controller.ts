@@ -9,16 +9,17 @@ function GETAppFile(req:Request, res:Response) {
 			error : 305,
 			description : "DTV resource not found"
 		});
+		return;
 	}
 
 	let file_data = service.getFile(req.query.path as string);
-	
-	if (file_data.type != 'video' && file_data.type != 'audio') {
-		replyFile(res, file_data);
-	}
-	else if (req.headers.range !== undefined) {
+
+	if ((file_data.type == 'video' || file_data.type == 'audio') && req.headers.range !== undefined) {
 		const range:string = req.headers.range;
 		replyStream(res, range, file_data);
+	}
+	else {
+		replyFile(res, file_data);
 	}
 };
 

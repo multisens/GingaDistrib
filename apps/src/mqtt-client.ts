@@ -7,6 +7,7 @@ const client:MqttClient = mqtt.connect(brokerUrl, {
     clientId : 'app-client',
     clean : true,
     connectTimeout : 4000,
+    protocolVersion: 5
 });
 
 

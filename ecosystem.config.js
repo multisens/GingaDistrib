@@ -1,7 +1,7 @@
 module.exports = {
     apps : [
         {
-            name        : 'mosquitto',
+            name        : 'broker',
             script      : '/opt/homebrew/sbin/mosquitto',
             args        : '-c /opt/homebrew/etc/mosquitto/mosquitto.conf',
             interpreter : 'none',
@@ -9,22 +9,52 @@ module.exports = {
             autorestart : false
         },
         {
-            name        : 'config-publisher',
-            script      : 'ccws/publish-config.js',
-            interpreter : 'node',
-            autorestart : false,
+            name        : 'aop',
+            cwd         : './aop',
+            script      : 'npm',
+            args        : 'start',
+            interpreter : 'none',
             wait_ready  : true,
+            autorestart : false,
             env : {
-                MQTT_HOST       : 'localhost',
-                CURRENT_USER    : '0',
-                SERVICE_NAME    : 'TV Cefet',
-                SERVICE_ID      : 'fe2481ea-5d44-4225-884b-504782636c3a', // Mesmo do código do Guaraná
-                CURRENT_APP     : '100',
-                APP_PATH        : '/Users/joel/Coding/DemoGuarana/sea360'
+                PORT            : 8080,
+                BROKER          : 'mqtt://localhost',
+                SCREENWIDTH     : 1440,
+                USER_DATA_PATH  : '/Users/joel/Coding/DemoGuarana/user-files'
             }
         },
         {
-            name        : 'tv30-ccws',
+            name        : 'apps',
+            cwd         : './apps',
+            script      : 'npm',
+            args        : 'start',
+            interpreter : 'none',
+            wait_ready  : true,
+            autorestart : false,
+            env : {
+                PORT            : 8081,
+                BROKER          : 'mqtt://localhost',
+                USER_DATA_PATH  : '/Users/joel/Coding/DemoGuarana/user-files'
+            }
+        },
+        {
+            name        : 'stream-flower',
+            cwd         : './apps',
+            interpreter : '/bin/bash',
+            autorestart : false,
+            script      : './stream.sh',
+            args        : 'public/media/cefet/flowerVideo.mp4'
+        },
+        {
+            name        : 'stream-sea',
+            cwd         : './apps',
+            interpreter : '/bin/bash',
+            autorestart : false,
+            script      : './stream.sh',
+            args        : 'public/media/cefet/seaVideo.mp4'
+        },
+        {
+            name        : 'tv3ws',
             cwd         : './ccws',
             script      : 'npm',
             args        : 'start',
@@ -32,8 +62,8 @@ module.exports = {
             wait_ready  : true,
             env : {
                 PORT            : 44642,
+                BROKER          : 'mqtt://localhost',
                 SERVER_URL      : 'localhost',
-                NODE_SRC        : 'sea.ncl360',
                 USER_DATA_FILE  : '/Users/joel/Coding/DemoGuarana/user-files/userData.json',
                 USER_THUMBS     : '/Users/joel/Coding/DemoGuarana/user-files/thumbs'
             }
@@ -45,33 +75,17 @@ module.exports = {
         },
         {
             name        : 'topic-explorer',
-            script      : '/Users/joel/Applications/nwjs.app/Contents/MacOS/nwjs',
-            args        : './mqtt-explorer',
-            interpreter : 'none',
+            interpreter : '/bin/bash',
             autorestart : false,
-            env : {
-                DISPLAY  : ':0'
-            }
+            script      : './start-chrome.sh',
+            args        : './mqtt-explorer/index.html'
         },
         {
             name        : 'remote-device',
-            script      : '/Users/joel/Applications/nwjs.app/Contents/MacOS/nwjs',
-            args        : './remote-device',
-            interpreter : 'none',
+            interpreter : '/bin/bash',
             autorestart : false,
-            env : {
-                DISPLAY  : ':0'
-            }
-        },
-        {
-            name        : 'dtv-simmulator',
-            script      : '/Users/joel/Applications/nwjs.app/Contents/MacOS/nwjs',
-            args        : './dtv',
-            interpreter : 'none',
-            autorestart : false,
-            env : {
-                DISPLAY  : ':0'
-            }
+            script      : './start-chrome.sh',
+            args        : './remote-device/index.html'
         }
     ]
 }

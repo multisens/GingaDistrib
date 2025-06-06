@@ -11,7 +11,7 @@
 			"signLanguageWindow"	: false,
 			"audioDescription" 		: false,
 			"dialogueEnhancement" 	: false,
-			"accessConsent"			: ["fe2481ea-5d44-4225-884b-504782636c3a"]
+			"accessConsent"			: ["fe2481ea-5d44-4225-884b-504782636c3a", "0"]
 		},
 		{
 			"id"   					: "4b58baf8-65ce",
@@ -26,7 +26,7 @@
 			"signLanguageWindow"	: false,
 			"audioDescription" 		: false,
 			"dialogueEnhancement" 	: false,
-			"accessConsent"			: ["fe2481ea-5d44-4225-884b-504782636c3a"]
+			"accessConsent"			: ["fe2481ea-5d44-4225-884b-504782636c3a", "0"]
 		},
     	{
 			"id" 					: "c41e7a99-5dce",
@@ -41,7 +41,7 @@
 			"signLanguageWindow"	: false,
 			"audioDescription" 		: false,
 			"dialogueEnhancement" 	: false,
-			"accessConsent"			: ["fe2481ea-5d44-4225-884b-504782636c3a"]
+			"accessConsent"			: ["fe2481ea-5d44-4225-884b-504782636c3a", "0"]
 		}
 	]
 }

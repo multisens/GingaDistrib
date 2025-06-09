@@ -1,7 +1,7 @@
 import * as dotenv from 'dotenv';
 import http from 'http';
 import { v4 as uuidv4 } from 'uuid';
-import { WebSocket, WebSocketServer } from 'ws';
+import { WebSocketServer } from 'ws';
 import manager from '../remotedevice-manager/manager';
 dotenv.config();
 

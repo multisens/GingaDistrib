@@ -17,7 +17,10 @@ export const TOPICS = {
     services: 'aop/services',
     current_service: 'aop/currentService',
     current_app: 'aop/:serviceId/currentApp',
-    app_path: 'aop/:serviceId/:appId/path'
+    app_path: 'aop/:serviceId/:appId/path',
+    app_nodes: 'aop/:serviceId/:appId/doc/nodes',
+    app_doc: 'aop/:serviceId/:appId/doc',
+    devices: 'aop/devices'
 }
 
 type TopicHandler = {

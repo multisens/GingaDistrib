@@ -1,4 +1,5 @@
 import mqttClient, { TOPICS } from './mqtt-client';
+import { associateAppNodes } from './modules/remotedevice-manager/manager';
 import { AppNode } from './modules/remotedevice-manager/remote-device';
 
 
@@ -73,6 +74,7 @@ function setAppNodes(nodes: string) {
     if (!nodes) return;
 
     data.app.nodes = JSON.parse(nodes);
+    associateAppNodes();
 }
 
 function currentService(sid: string): void {

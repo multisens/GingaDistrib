@@ -1,7 +1,7 @@
 {
 	"users" : [
     	{
-			"id" 					: "0",
+			"id" 					: "c3167a18-5dc5",
 			"name" 					: "Anonymous",
 			"isGroup" 				: true,
 			"avatar" 				: "0.png",
@@ -11,10 +11,10 @@
 			"signLanguageWindow"	: false,
 			"audioDescription" 		: false,
 			"dialogueEnhancement" 	: false,
-			"accessConsent"			: ["fe2481ea-5d44-4225-884b-504782636c3a"]
+			"accessConsent"			: ["fe2481ea-5d44-4225-884b-504782636c3a", "0"]
 		},
 		{
-			"id"   					: "1",
+			"id"   					: "4b58baf8-65ce",
 			"name" 					: "Karen",
 			"age"  					: 20,
 			"isGroup" 				: false,
@@ -26,10 +26,10 @@
 			"signLanguageWindow"	: false,
 			"audioDescription" 		: false,
 			"dialogueEnhancement" 	: false,
-			"accessConsent"			: ["fe2481ea-5d44-4225-884b-504782636c3a"]
+			"accessConsent"			: ["fe2481ea-5d44-4225-884b-504782636c3a", "0"]
 		},
     	{
-			"id" 					: "2",
+			"id" 					: "c41e7a99-5dce",
 			"name" 					: "João",
 			"age"					: 20,
 			"isGroup" 				: false,
@@ -41,7 +41,7 @@
 			"signLanguageWindow"	: false,
 			"audioDescription" 		: false,
 			"dialogueEnhancement" 	: false,
-			"accessConsent"			: ["fe2481ea-5d44-4225-884b-504782636c3a"]
+			"accessConsent"			: ["fe2481ea-5d44-4225-884b-504782636c3a", "0"]
 		}
 	]
 }

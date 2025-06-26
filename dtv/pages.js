@@ -1,5 +1,5 @@
 const DATA = {
-  base_path: "user-files/thumbs",
+  base_path: "/home/mota/Documents/uff/tcc/GuaranaDemo/user-files",
   profile: ["Without<br/>profile", "Karen", "Jo&atilde;o"],
   serviceName: "TV Cefet",
   serviceId: "fe2481ea-5d44-4225-884b-504782636c3a",

@@ -20,7 +20,7 @@ module.exports = {
         PORT: 8080,
         BROKER: "mqtt://localhost",
         SCREENWIDTH: 1440,
-        USER_DATA_PATH: "/Users/joel/Coding/DemoGuarana/user-files",
+        USER_DATA_PATH: "/home/mota/Documents/uff/tcc/GuaranaDemo/user-files",
       },
     },
     {

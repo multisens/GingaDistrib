@@ -1,317 +1,432 @@
-import core from '../../core';
-import mqttClient, { TOPICS } from '../../mqtt-client';
-import { ReqBody } from '../remotedevice-api/service';
-import { Action, EventType, type ActionMetadata, type NodeMetadata, type TransitionMetadata } from './types';
-import { WebSocket, WebSocketServer } from 'ws';
-
+import core from "../../core";
+import mqttClient, { TOPICS } from "../../mqtt-client";
+import { ReqBody } from "../remotedevice-api/service";
+import {
+  Action,
+  CapabilitiesMetadata,
+  ControlMetadata,
+  DeviceCapabilities,
+  EffectType,
+  EventType,
+  type ActionMetadata,
+  type NodeMetadata,
+  type TransitionMetadata,
+} from "./types";
+import { WebSocket, WebSocketServer } from "ws";
 
 enum InterfaceType {
-    area = 'area',
-    property = 'property',
-    port = 'port'
+  area = "area",
+  property = "property",
+  port = "port",
 }
 
 enum NodeType {
-    media = 'media',
-    context = 'context',
-    switch = 'switch'
+  media = "media",
+  context = "context",
+  switch = "switch",
 }
 
-type PropertiesType = { name: string, value: string }[];
+type PropertiesType = { name: string; value: string }[];
 
 export type AppNode = {
-    id: string,
-    type: NodeType,
-    mimeType: string,
-    device: string
-}
+  id: string;
+  type: NodeType;
+  mimeType: string;
+  device: string;
+};
 
 export type NodeInterface = {
-    id: string,
-    type: InterfaceType
-}
-
+  id: string;
+  type: InterfaceType;
+};
 
 export default class RemoteDevice {
-    protected handle: string;
-    protected deviceClass: string;
-    protected supportedTypes: string[];
+  protected handle: string;
+  protected deviceClass: string;
+  protected supportedTypes: string[];
+  protected capabilities: DeviceCapabilities;
 
-    protected ws?: WebSocket;
-    protected wss: WebSocketServer;
+  // ?
+  protected ws?: WebSocket;
 
-    protected subscribed: boolean;
-    protected topic_prefix?: string;
-    protected node?: AppNode;
-    protected interfaceIds?: string[];
-    protected properties: Map<string, string>;
+  // WebSocket entre o RDM e o Remote Device
+  protected wss: WebSocketServer;
 
+  protected subscribed: boolean;
+  protected topic_prefix?: string;
+  protected node?: AppNode;
+  protected interfaceIds?: string[];
+  protected properties: Map<string, string>;
 
-    constructor(body: ReqBody, handle: string, wss: WebSocketServer) {
-        this.deviceClass = body.deviceClass;
-        this.supportedTypes = body.supportedTypes;
-        this.handle = handle;
-        this.wss = wss;
-        
-        this.subscribed = false;
-        this.properties = new Map<string, string>();
+  // Binding this for all methods that use it
 
-        wss.on('connection', this.onWebSocketConnection);
+  constructor(body: ReqBody, handle: string, wss: WebSocketServer) {
+    this.deviceClass = body.deviceClass;
+    this.supportedTypes = body.supportedTypes;
+    this.handle = handle;
+    this.wss = wss;
+
+    this.capabilities = {
+      effectType: body.supportedTypes[0] as EffectType,
+      state: "stopped",
+      locator: "",
+      preparationTime: 0,
+    };
+
+    this.subscribed = false;
+    this.properties = new Map<string, string>();
+
+    console.log("Remote device created with handle:", this.handle);
+    wss.on("connection", (ws) => this.onWebSocketConnection(ws));
+  }
+
+  protected onWebSocketConnection(ws: WebSocket): void {
+    console.log(`${this.handle} connected.`);
+    this.ws = ws;
+
+    ws.on("close", () => {
+      console.log(`${this.handle} disconnected.`);
+    });
+
+    ws.on("message", (message) => this.onWebSocketMessage(message));
+  }
+
+  protected onWebSocketMessage(message: any): void {
+    const msg: string = message.toString();
+    console.log(`Client ${this.handle} sent message\n ${msg}\n\n`);
+
+    // Transition Message
+    if (msg.includes("transition")) {
+      const data: TransitionMetadata = JSON.parse(msg);
+      this.publishTransitionMetadata(data);
     }
+    // Capabilities Message
+    else if (msg.includes("capabilities")) {
+      const data: CapabilitiesMetadata = JSON.parse(msg);
+      if (data.type && data.type !== this.deviceClass) {
+        console.error(
+          `Received capabilities for ${data.type}, expected ${this.deviceClass}`
+        );
+        return;
+      }
 
-    protected onWebSocketConnection(ws: WebSocket): void {
-        console.log(`${this.handle} connected.`);
+      const newCapabilities: DeviceCapabilities = {} as DeviceCapabilities;
+      for (const capability of data.capabilities) {
+        if (capability.name === "effectType") {
+          newCapabilities.effectType = capability.value;
+        } else if (capability.name === "state") {
+          newCapabilities.state = capability.value;
+        } else if (capability.name === "locator") {
+          newCapabilities.locator = capability.value;
+        } else if (capability.name === "preparationTime") {
+          newCapabilities.preparationTime = capability.value;
+        }
+      }
 
-        ws.on('close', () => {
-            console.log(`${this.handle} disconnected.`);
-        });
+      this.capabilities = newCapabilities;
 
-        ws.on('message', (message) => this.onWebSocketMessage(message));
+      console.log(
+        `Received capabilities for ${this.deviceClass}:`,
+        this.capabilities
+      );
+    } else {
+      console.error("Message does not have the expected format.");
+      return;
     }
+  }
 
-    protected onWebSocketMessage(message: any): void {
-        const msg: string = message.toString();
-        console.log(`Client ${this.handle} sent message\n ${msg}\n\n`);
-    
-        if (msg.includes('transition')) {
-            const data: TransitionMetadata = JSON.parse(msg);
-            this.publishTransitionMetadata(data);
-        }
-        else {
-            console.error('Message does not have the expected format.')
-            return;
-        }
+  protected sendWebSocketMessage(
+    data: NodeMetadata | ActionMetadata | ControlMetadata
+  ) {
+    if (this.ws) {
+      this.ws.send(JSON.stringify(data));
+    } else {
+      // TODO: store message for later
     }
+  }
 
-    protected sendWebSocketMessage(data: NodeMetadata | ActionMetadata) {
-        if (this.ws) {
-            this.ws.send(JSON.stringify(data));
-        }
-        else {
-            // TODO: store message for later
-        }
-    }
+  protected onMqttMessage(m: string, t?: string): void {
+    if (!t) return;
 
-    protected onMqttMessage(m: string, t?: string): void {
-        if (!t) return;
-        
-        let topic: string = t.replace(`${this.topic_prefix as string}/`, '');
+    let topic: string = t.replace(`${this.topic_prefix as string}/`, "");
 
-        try {
-            const parsed = this.parseTopic(m, topic);
+    try {
+      const parsed = this.parseTopic(m, topic);
 
-            if (parsed.eventType == EventType.preparation && m == Action.start) {
-                let data: NodeMetadata = {
-                    nodeId : this.node?.id as string,
-                    appId : core.app.id as string,
-                    type : this.node?.mimeType as string
-                };
+      if (parsed.eventType == EventType.preparation && m == Action.start) {
+        let data: NodeMetadata = {
+          nodeId: this.node?.id as string,
+          appId: core.app.id as string,
+          type: this.node?.mimeType as string,
+        };
 
-                if (this.properties.has('src')) {
-                    data.nodeSrc = this.properties.get('src');
-                }
-
-                let props = this.parseProperties();
-                if (props.length > 0) {
-                    data.properties = props;
-                }
-
-                this.sendWebSocketMessage(data);
-            }
-            else {
-                let data: ActionMetadata = {
-                    nodeId : this.node?.id as string,
-                    appId : core.app.id as string,
-                    eventType : parsed.eventType as EventType,
-                    action : parsed.action as Action
-                };
-
-                if (parsed.label)
-                    data.label = parsed.label;
-
-                this.sendWebSocketMessage(data);
-            }
-        }
-        catch (e) {
-            console.error(e);
-        }
-    }
-
-    protected publishTransitionMetadata(data: TransitionMetadata): void {
-        if (!this.subscribed) {
-            console.error(`No MQTT topic prefix defined for device ${this.handle}`);
-            return;
-        }
-
-        let topic = this.topic_prefix;
-
-        if (data.label)
-            topic += `/${data.label}`;
-        topic += `/${data.eventType}Event`;
-        if (data.eventType == EventType.selection)
-            topic += '/OK';
-
-        mqttClient.publish(topic + '/eventNotification', data.transition, false);
-
-        if (data.user && data.eventType == EventType.selection)
-            mqttClient.publish(topic + '/user', data.user);
-
-        if (data.value && data.eventType == EventType.attribution)
-            mqttClient.publish(topic + '/value', data.value);
-    }
-
-    protected parseTopic(m: string, t: string): Record<string, string> {
-        // [:ifaceId/](presentation|preparation|selection|attribution)Event/[:key/]actionNotification
-        
-        const parts = t.split('/');
-        if (parts.length < 2 || !t.includes('/actionNotification')) {
-            throw new Error('Topic does not match expected structure');
+        if (this.properties.has("src")) {
+          data.nodeSrc = this.properties.get("src");
         }
 
-        const result: Record<string, string> = {};
-        if (parts[0].includes('Event')) {
-            // It's the node eventType
-            this.parseEvent(parts, m, result);
-        }
-        else {
-            // must be an interface id
-            this.parseInterface(parts, m, result);
+        let props = this.parseProperties();
+        if (props.length > 0) {
+          data.properties = props;
         }
 
-        return result;
+        this.sendWebSocketMessage(data);
+      } else {
+        let data: ActionMetadata = {
+          nodeId: this.node?.id as string,
+          appId: core.app.id as string,
+          eventType: parsed.eventType as EventType,
+          action: parsed.action as Action,
+        };
+
+        if (parsed.label) data.label = parsed.label;
+
+        this.sendWebSocketMessage(data);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  protected publishTransitionMetadata(data: TransitionMetadata): void {
+    if (!this.subscribed) {
+      console.error(`No MQTT topic prefix defined for device ${this.handle}`);
+      return;
     }
 
-    protected parseInterface(parts: string[], m: string, result: Record<string, string>): void {
-        let part: string = parts.shift() as string;
+    let topic = this.topic_prefix;
 
-        if (!this.interfaceIds?.includes(part)) {
-            throw new Error(`Unexpected interface id: ${part}`);
-        }
+    if (data.label) topic += `/${data.label}`;
+    topic += `/${data.eventType}Event`;
+    if (data.eventType == EventType.selection) topic += "/OK";
 
-        result['label'] = part;
+    mqttClient.publish(topic + "/eventNotification", data.transition, false);
 
-        this.parseEvent(parts, m, result);
+    if (data.user && data.eventType == EventType.selection)
+      mqttClient.publish(topic + "/user", data.user);
+
+    if (data.value && data.eventType == EventType.attribution)
+      mqttClient.publish(topic + "/value", data.value);
+  }
+
+  protected parseTopic(m: string, t: string): Record<string, string> {
+    // [:ifaceId/](presentation|preparation|selection|attribution)Event/[:key/]actionNotification
+
+    const parts = t.split("/");
+    if (parts.length < 2 || !t.includes("/actionNotification")) {
+      throw new Error("Topic does not match expected structure");
     }
 
-    protected parseEvent(parts: string[], m: string, result: Record<string, string>): void {
-        let part: string = parts.shift() as string;
-
-        if (!part.includes('Event')) {
-            throw new Error(`Should be an event, got ${part} instead`);
-        }
-
-        part = part.replace('Event', '');
-        if (!Object.values(EventType).includes(part as EventType)) {
-            throw new Error(`Event ${part} does not match expected event types`);
-        }
-
-        result['eventType'] = part;
-
-        if (part == EventType.selection) {
-            // parses the key
-            this.parseKey(parts, m, result);
-        }
-        else {
-            this.parseAction(parts, m, result);
-        }
+    const result: Record<string, string> = {};
+    if (parts[0].includes("Event")) {
+      // It's the node eventType
+      this.parseEvent(parts, m, result);
+    } else {
+      // must be an interface id
+      this.parseInterface(parts, m, result);
     }
 
-    protected parseKey(parts: string[], m: string, result: Record<string, string>): void {
-        let part: string = parts.shift() as string;
+    return result;
+  }
 
-        result['key'] = part;
+  protected parseInterface(
+    parts: string[],
+    m: string,
+    result: Record<string, string>
+  ): void {
+    let part: string = parts.shift() as string;
 
-        this.parseAction(parts, m, result);
+    if (!this.interfaceIds?.includes(part)) {
+      throw new Error(`Unexpected interface id: ${part}`);
     }
 
-    protected parseAction(parts: string[], m: string, result: Record<string, string>): void {
-        let part: string = parts.shift() as string;
+    result["label"] = part;
 
-        if (!part.match('actionNotification')) {
-            throw new Error(`Expecting actionNotification, got ${parts[0]} instead`);
-        }
+    this.parseEvent(parts, m, result);
+  }
 
-        if (!Object.values(Action).includes(m as Action)) {
-            throw new Error(`Action ${m} does not match expected actions`);
-        }
+  protected parseEvent(
+    parts: string[],
+    m: string,
+    result: Record<string, string>
+  ): void {
+    let part: string = parts.shift() as string;
 
-        result['action'] = m;
+    if (!part.includes("Event")) {
+      throw new Error(`Should be an event, got ${part} instead`);
     }
 
-    public getClass(): string {
-        return this.deviceClass;
+    part = part.replace("Event", "");
+    if (!Object.values(EventType).includes(part as EventType)) {
+      throw new Error(`Event ${part} does not match expected event types`);
     }
 
-    public getHandle(): string {
-        return this.handle;
+    result["eventType"] = part;
+
+    if (part == EventType.selection) {
+      // parses the key
+      this.parseKey(parts, m, result);
+    } else {
+      this.parseAction(parts, m, result);
+    }
+  }
+
+  protected parseKey(
+    parts: string[],
+    m: string,
+    result: Record<string, string>
+  ): void {
+    let part: string = parts.shift() as string;
+
+    result["key"] = part;
+
+    this.parseAction(parts, m, result);
+  }
+
+  protected parseAction(
+    parts: string[],
+    m: string,
+    result: Record<string, string>
+  ): void {
+    let part: string = parts.shift() as string;
+
+    if (!part.match("actionNotification")) {
+      throw new Error(`Expecting actionNotification, got ${parts[0]} instead`);
     }
 
-    public support(type: string): boolean {
-        return this.supportedTypes.includes(type);
+    if (!Object.values(Action).includes(m as Action)) {
+      throw new Error(`Action ${m} does not match expected actions`);
     }
 
-    public setNode(node: AppNode): void {
-        this.node = node;
-        
-        this.topic_prefix = mqttClient.parseTopic(TOPICS.app_doc, { serviceId : core.app.sid, appId : core.app.id });
-        let ids = node.id.split('.');
-        this.topic_prefix += `/${ids.join('/')}`;
+    result["action"] = m;
+  }
 
-        mqttClient.addTopicHandler(`${this.topic_prefix}/interfaces`, this.setNodeInterfaces);
-        mqttClient.addTopicHandler(`${this.topic_prefix}/+/actionNotification`, this.onMqttMessage);
-        mqttClient.addTopicHandler(`${this.topic_prefix}/+/+/actionNotification`, this.onMqttMessage);
-        this.subscribed = true;
+  public getClass(): string {
+    return this.deviceClass;
+  }
+
+  public getHandle(): string {
+    return this.handle;
+  }
+
+  // ? Verify
+  public getSupportedTypes(): string[] {
+    return this.supportedTypes;
+  }
+
+  // ? Verify
+  public getUrl(): string {
+    if (!this.wss) return "";
+    return `ws://${core.app.url}:${this.wss.options.port}`;
+  }
+
+  // ? Verify
+  public getCapabilities(): DeviceCapabilities | undefined {
+    if (!this.capabilities) {
+      return undefined;
     }
+    return this.capabilities;
+  }
 
-    protected setNodeInterfaces(interfaces: string): void {
-        let ifaces: NodeInterface[] = JSON.parse(interfaces);
-        mqttClient.removeTopicHandler(`${this.topic_prefix}/interfaces`, this.setNodeInterfaces);
+  public controlDevice(command: ControlMetadata): void {
+    const messageToSend = command;
+    console.log(
+      `Sending control command to device ${this.handle}:`,
+      messageToSend
+    );
 
-        this.interfaceIds = [];
-        this.properties.clear();
-        ifaces.forEach(iface => {
-            this.interfaceIds?.push(iface.id);
+    this.sendWebSocketMessage(command);
+  }
 
-            if (iface.type == InterfaceType.property) {
-                mqttClient.addTopicHandler(`${this.topic_prefix}/${iface.id}/attributionEvent/value`, this.setPropertyValue);
-            }
-        });
+  public support(type: string): boolean {
+    return this.supportedTypes.includes(type);
+  }
+
+  public setNode(node: AppNode): void {
+    this.node = node;
+
+    this.topic_prefix = mqttClient.parseTopic(TOPICS.app_doc, {
+      serviceId: core.app.sid,
+      appId: core.app.id,
+    });
+    let ids = node.id.split(".");
+    this.topic_prefix += `/${ids.join("/")}`;
+
+    mqttClient.addTopicHandler(
+      `${this.topic_prefix}/interfaces`,
+      this.setNodeInterfaces
+    );
+    mqttClient.addTopicHandler(
+      `${this.topic_prefix}/+/actionNotification`,
+      this.onMqttMessage
+    );
+    mqttClient.addTopicHandler(
+      `${this.topic_prefix}/+/+/actionNotification`,
+      this.onMqttMessage
+    );
+    this.subscribed = true;
+  }
+
+  protected setNodeInterfaces(interfaces: string): void {
+    let ifaces: NodeInterface[] = JSON.parse(interfaces);
+    mqttClient.removeTopicHandler(
+      `${this.topic_prefix}/interfaces`,
+      this.setNodeInterfaces
+    );
+
+    this.interfaceIds = [];
+    this.properties.clear();
+    ifaces.forEach((iface) => {
+      this.interfaceIds?.push(iface.id);
+
+      if (iface.type == InterfaceType.property) {
+        mqttClient.addTopicHandler(
+          `${this.topic_prefix}/${iface.id}/attributionEvent/value`,
+          this.setPropertyValue
+        );
+      }
+    });
+  }
+
+  protected setPropertyValue(m: string, t?: string): void {
+    if (!t) return;
+
+    // :ifaceId/attributionEvent/value
+    let ifaceId: string = t.replace(`${this.topic_prefix as string}/`, "");
+    ifaceId = ifaceId.replace("/attributionEvent/value", "");
+
+    this.properties.set(ifaceId, m);
+
+    mqttClient.removeTopicHandler(t, this.setPropertyValue);
+  }
+
+  protected parseProperties(): PropertiesType {
+    let p: PropertiesType = [];
+    this.properties.forEach((value, key) => {
+      if (key == "src") return;
+
+      p.push({
+        name: key,
+        value: value,
+      });
+    });
+    return p;
+  }
+
+  public terminate(): void {
+    if (this.ws) {
+      this.ws.close();
     }
-
-    protected setPropertyValue(m: string, t?: string): void {
-        if (!t) return;
-        
-        // :ifaceId/attributionEvent/value
-        let ifaceId: string = t.replace(`${this.topic_prefix as string}/`, '');
-        ifaceId = ifaceId.replace('/attributionEvent/value', '');
-        
-        this.properties.set(ifaceId, m);
-
-        mqttClient.removeTopicHandler(t, this.setPropertyValue);
+    this.wss.close();
+    if (this.subscribed) {
+      mqttClient.removeTopicHandler(
+        `${this.topic_prefix}/+/actionNotification`,
+        this.onMqttMessage
+      );
+      mqttClient.removeTopicHandler(
+        `${this.topic_prefix}/+/+/actionNotification`,
+        this.onMqttMessage
+      );
+      this.subscribed = false;
     }
-
-    protected parseProperties(): PropertiesType {
-        let p: PropertiesType = [];
-        this.properties.forEach((value, key) => {
-            if (key == 'src') return;
-
-            p.push({
-                name: key,
-                value: value
-            })
-        });
-        return p;
-    }
-
-    public terminate(): void {
-        if (this.ws) {
-            this.ws.close();
-        }
-        this.wss.close();
-        if (this.subscribed) {
-            mqttClient.removeTopicHandler(`${this.topic_prefix}/+/actionNotification`, this.onMqttMessage);
-            mqttClient.removeTopicHandler(`${this.topic_prefix}/+/+/actionNotification`, this.onMqttMessage);
-            this.subscribed = false;
-        }
-    }
+  }
 }

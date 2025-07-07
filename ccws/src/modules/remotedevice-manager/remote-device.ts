@@ -13,6 +13,7 @@ import {
   type TransitionMetadata,
 } from "./types";
 import { WebSocket, WebSocketServer } from "ws";
+import { removeRemoteDevice } from "./manager";
 
 enum InterfaceType {
   area = "area",
@@ -44,7 +45,7 @@ export default class RemoteDevice {
   protected handle: string;
   protected deviceClass: string;
   protected supportedTypes: string[];
-  protected capabilities: DeviceCapabilities;
+  protected capabilities: DeviceCapabilities[];
 
   // ?
   protected ws?: WebSocket;
@@ -66,12 +67,14 @@ export default class RemoteDevice {
     this.handle = handle;
     this.wss = wss;
 
-    this.capabilities = {
-      effectType: body.supportedTypes[0] as EffectType,
-      state: "stopped",
-      locator: "",
-      preparationTime: 0,
-    };
+    this.capabilities = [];
+    for (const sType of this.supportedTypes) {
+      const capability: DeviceCapabilities = {
+        effectType: sType as EffectType,
+        state: "stopped",
+      };
+      this.capabilities.push(capability);
+    }
 
     this.subscribed = false;
     this.properties = new Map<string, string>();
@@ -86,6 +89,7 @@ export default class RemoteDevice {
 
     ws.on("close", () => {
       console.log(`${this.handle} disconnected.`);
+      removeRemoteDevice(this.handle);
     });
 
     ws.on("message", (message) => this.onWebSocketMessage(message));
@@ -102,33 +106,7 @@ export default class RemoteDevice {
     }
     // Capabilities Message
     else if (msg.includes("capabilities")) {
-      const data: CapabilitiesMetadata = JSON.parse(msg);
-      if (data.type && data.type !== this.deviceClass) {
-        console.error(
-          `Received capabilities for ${data.type}, expected ${this.deviceClass}`
-        );
-        return;
-      }
-
-      const newCapabilities: DeviceCapabilities = {} as DeviceCapabilities;
-      for (const capability of data.capabilities) {
-        if (capability.name === "effectType") {
-          newCapabilities.effectType = capability.value;
-        } else if (capability.name === "state") {
-          newCapabilities.state = capability.value;
-        } else if (capability.name === "locator") {
-          newCapabilities.locator = capability.value;
-        } else if (capability.name === "preparationTime") {
-          newCapabilities.preparationTime = capability.value;
-        }
-      }
-
-      this.capabilities = newCapabilities;
-
-      console.log(
-        `Received capabilities for ${this.deviceClass}:`,
-        this.capabilities
-      );
+      this.onCapabilitiesMessage(msg);
     } else {
       console.error("Message does not have the expected format.");
       return;
@@ -143,6 +121,38 @@ export default class RemoteDevice {
     } else {
       // TODO: store message for later
     }
+  }
+
+  protected onCapabilitiesMessage(msg: string): void {
+    const data: CapabilitiesMetadata = JSON.parse(msg);
+
+    const newCapability: DeviceCapabilities = this.capabilities.find(
+      (c) => c.effectType === data.type
+    ) || {
+      effectType: data.type as EffectType,
+      state: "stopped",
+    };
+
+    for (const capability of data.capabilities) {
+      if (capability.name === "state") {
+        newCapability.state = capability.value;
+      } else if (capability.name === "locator") {
+        newCapability.locator = capability.value;
+      } else if (capability.name === "preparationTime") {
+        newCapability.preparationTime = capability.value;
+      }
+    }
+
+    // Somente um capability por effectType
+    this.capabilities = this.capabilities.filter(
+      (c) => c.effectType !== newCapability.effectType
+    );
+    this.capabilities.push(newCapability);
+
+    console.log(
+      `Received capabilities for ${this.deviceClass}:`,
+      this.capabilities
+    );
   }
 
   protected onMqttMessage(m: string, t?: string): void {
@@ -320,9 +330,9 @@ export default class RemoteDevice {
   }
 
   // ? Verify
-  public getCapabilities(): DeviceCapabilities | undefined {
+  public getCapabilities(): DeviceCapabilities[] {
     if (!this.capabilities) {
-      return undefined;
+      return [];
     }
     return this.capabilities;
   }

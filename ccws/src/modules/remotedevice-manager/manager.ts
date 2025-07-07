@@ -3,12 +3,18 @@ import mqttClient, { TOPICS } from "../../mqtt-client";
 import { ReqBody } from "../remotedevice-api/service";
 import RemoteDevice, { AppNode } from "./remote-device";
 import { WebSocketServer } from "ws";
-import { CapabilitiesMetadata, DeviceCapabilities } from "./types";
+import {
+  CapabilitiesMetadata,
+  DeviceCapabilities,
+  Locator,
+  PreparationTime,
+  State,
+} from "./types";
 
 const devices = new Map<string, RemoteDevice>();
 const devclasses = new Map<string, string[]>();
 
-export function associateAppNodes() {
+function associateAppNodes() {
   let nodes: AppNode[] = core.app.nodes;
   nodes.forEach((node) => {
     if (devices.has(node.device)) {
@@ -73,43 +79,32 @@ function getDeviceByHandle(handle: string): RemoteDevice | undefined {
   return devices.get(handle);
 }
 
-function requestDeviceCapabilities(handle: string): CapabilitiesMetadata {
-  if (!devices.has(handle))
-    throw new Error(`Device with handle ${handle} not found`);
+// Allows SEPE to request the capabilities of a device whenever it needs
+function requestDeviceCapabilities(handle: string): CapabilitiesMetadata[] {
   const device = devices.get(handle);
   if (!device) throw new Error(`Device with handle ${handle} not found`);
 
   const deviceCapabilities = device.getCapabilities();
 
-  if (!deviceCapabilities)
+  const result = deviceCapabilities.map((capability) => {
     return {
-      type: device.getClass(),
-      capabilities: [],
+      type: capability.effectType,
+      capabilities: [
+        { name: "state", value: capability.state },
+        { name: "locator", value: capability.locator },
+        {
+          name: "preparationTime",
+          value: capability.preparationTime,
+        },
+      ],
     };
+  });
 
-  const capabilities: CapabilitiesMetadata["capabilities"] = [
-    { name: "effectType", value: deviceCapabilities.effectType },
-    { name: "state", value: deviceCapabilities.state },
-  ];
-
-  if (deviceCapabilities.locator) {
-    capabilities.push({ name: "locator", value: deviceCapabilities.locator });
-  }
-
-  if (deviceCapabilities.preparationTime) {
-    capabilities.push({
-      name: "preparationTime",
-      value: deviceCapabilities.preparationTime,
-    });
-  }
-
-  return {
-    type: device.getClass(),
-    capabilities: capabilities,
-  };
+  return result as CapabilitiesMetadata[];
 }
 
-export default {
+export {
+  associateAppNodes,
   addRemoteDevice,
   removeRemoteDevice,
   getDevicesByClass,

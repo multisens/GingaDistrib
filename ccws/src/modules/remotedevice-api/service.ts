@@ -2,7 +2,7 @@ import * as dotenv from "dotenv";
 import http from "http";
 import { v4 as uuidv4 } from "uuid";
 import { WebSocketServer } from "ws";
-import manager from "../remotedevice-manager/manager";
+import * as manager from "../remotedevice-manager/manager";
 import { Device } from "./types";
 dotenv.config();
 

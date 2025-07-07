@@ -1,8 +1,11 @@
-import manager from "../remotedevice-manager/manager";
+import {
+  getDeviceByHandle,
+  getDevicesByClass,
+} from "../remotedevice-manager/manager";
 import { ControlMetadata } from "../remotedevice-manager/types";
 
 function getRenderersMetadata() {
-  const sensoryDevices = manager.getDevicesByClass("sensory-effect");
+  const sensoryDevices = getDevicesByClass("sensory-effect");
   const renderers = sensoryDevices.map((device) => {
     return {
       id: device.getHandle(),
@@ -15,7 +18,7 @@ function getRenderersMetadata() {
 }
 
 function getRendererMetadata(rendererId: string) {
-  const renderer = manager.getDeviceByHandle(rendererId);
+  const renderer = getDeviceByHandle(rendererId);
 
   if (!renderer || renderer.getClass() !== "sensory-effect") {
     return undefined;
@@ -29,7 +32,7 @@ function getRendererMetadata(rendererId: string) {
 }
 
 function controlRenderer(rendererId: string, body: ControlMetadata) {
-  const renderer = manager.getDeviceByHandle(rendererId);
+  const renderer = getDeviceByHandle(rendererId);
   if (!renderer || renderer.getClass() !== "sensory-effect") {
     throw new Error("Invalid renderer-id, renderer not found");
   }

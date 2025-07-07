@@ -52,9 +52,8 @@ export type TransitionMetadata = {
 };
 
 export type CapabilitiesMetadata = {
-  type?: string;
+  type?: EffectType;
   capabilities: (
-    | { name: "effectType"; value: EffectType }
     | { name: "state"; value: State }
     | { name: "locator"; value: Locator }
     | { name: "preparationTime"; value: PreparationTime }
@@ -76,8 +75,8 @@ export type EffectType =
   | "SprayingType"
   | "FogType";
 export type State = "preparing" | "prepared" | "playing" | "stopped" | "idle";
-type Locator = string;
-type PreparationTime = number;
+export type Locator = string;
+export type PreparationTime = number;
 
 export type DeviceCapabilities = {
   effectType: EffectType;

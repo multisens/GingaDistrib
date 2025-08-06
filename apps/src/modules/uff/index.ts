@@ -79,35 +79,98 @@ async function playLightEffect(sepe, action, color) {
   );
 }
 
+async function playScentEffect(sepe, action, intensity) {
+  const body = {
+    effectType: "ScentType",
+    action: action,
+    properties: [{ name: "intensity", value: intensity }],
+  };
+
+  const response = fetch(
+    "http://localhost:44642/tv3/sensory-effect-renderers/" + sepe.id,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    }
+  );
+}
+
 async function execute() {
-  console.log("Starting SEPE light effect demo...");
+
   const sepe = await findSepe();
-  console.log("Sepe response:", sepe);
   if (!sepe) {
-    console.error("No SEPE found");
-  } else {
-    console.log("SEPE found:", sepe);
+    console.error("No SEPE found, exiting.");
+    return;
   }
 
   console.log("Scheduling light effects...");
+  // Schedule light effects
+  /*
+    00:00 azul água
+    00:09 rosa/roxo
+    00:17 azul água
+    00:28 azul escuro
+    00:36 laranja
+    00:45 branco azulado
+    00:52 verde amarelado
+    00:58 branco azulado
+    01:18 azul água
+    01:36 verde
+    01:45 branco azulado
+  */
+
   if (sepe) {
     setTimeout(() => {
-      playLightEffect(sepe, "start", [255, 0, 0]); // Red light
+      playLightEffect(sepe, "start", [0, 0, 255]); // Blue light
     }, 0);
 
     setTimeout(() => {
-      playLightEffect(sepe, "set", [0, 255, 0]); // Green light
-    }, 2000);
+      playLightEffect(sepe, "set", [255, 0, 255]); // Pink/Purple light
+      playScentEffect(sepe, "set", 50); // Light scent
+    }, 9000);
 
     setTimeout(() => {
-      playLightEffect(sepe, "set", [0, 0, 255]); // Turn off light
-    }, 4000);
+      playLightEffect(sepe, "set", [0, 0, 255]); // Blue light
+    }, 17000);
 
     setTimeout(() => {
-      playLightEffect(sepe, "stop");
-      // Stop light
-    }, 6000);
-    console.log("Light effects scheduled.");
+      playLightEffect(sepe, "set", [0, 0, 139]); // Dark Blue light
+    }, 28000);
+
+    setTimeout(() => {
+      playLightEffect(sepe, "set", [255, 165, 0]); // Orange light
+      playScentEffect(sepe, "stop", 50); // Stop light scent
+    }, 36000);
+
+    setTimeout(() => {
+      playLightEffect(sepe, "set", [240, 248, 255]); // Light Blue/White light
+      playScentEffect(sepe, "set", 100); // Strong scent
+    }, 45000);
+
+    setTimeout(() => {
+      playLightEffect(sepe, "set", [173, 255, 47]); // Greenish Yellow light
+    }, 52000);
+
+    setTimeout(() => {
+      playLightEffect(sepe, "set", [240, 248, 255]); // Light Blue/White light
+    }, 58000);
+
+    setTimeout(() => {
+      playLightEffect(sepe, "set", [0, 0, 255]); // Blue light
+      playScentEffect(sepe, "stop", 100); // Stop strong scent
+    }, 78000);
+
+    setTimeout(() => {
+      playLightEffect(sepe, "set", [0, 128, 0]); // Green light
+    }, 96000);
+
+    setTimeout(() => {
+      playLightEffect(sepe, "set", [240, 248, 255]); // Light Blue/White light
+    }, 105000);
+
   } else {
     console.error("No SEPE found, cannot schedule light effects.");
   }
@@ -131,12 +194,12 @@ router.get("/", (req: Request, res: Response) => {
     mainVideoMove: 'moveup="user" movedown="connect"',
     info: info_url,
     mainVideoURL: video_url,
-    script: handleUserUpdate + fullscreen + script,
+    script: handleUserUpdate + fullscreen,
   });
 });
 
 router.get("/fullscreen", (req: Request, res: Response) => {
-  let video_url = "/media/uff/flowerVideo.mp4";
+  let video_url = "/media/uff/aquariumVideo.mp4";
 
   res.render("fullscreen", {
     mainVideoURL: video_url,

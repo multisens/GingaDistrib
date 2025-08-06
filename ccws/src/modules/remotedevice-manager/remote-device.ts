@@ -338,12 +338,7 @@ export default class RemoteDevice {
   }
 
   public controlDevice(command: ControlMetadata): void {
-    const messageToSend = command;
-    console.log(
-      `Sending control command to device ${this.handle}:`,
-      messageToSend
-    );
-
+    console.log('[RemoteDevice] sending websocket message to SEPE at ', Date.now());
     this.sendWebSocketMessage(command);
   }
 

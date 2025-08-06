@@ -40,6 +40,8 @@ function GETRenderer(req: Request, res: Response): void {
 }
 
 function POSTControlRenderer(req: Request, res: Response): void {
+  console.log("[POSTControlRenderer] Action received at ", Date.now());
+
   const rendererId = req.params["rendererId"];
   if (!rendererId) {
     res.status(400).json({

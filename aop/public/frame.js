@@ -36,7 +36,8 @@ const DATA = {
     topics: {
         current_user: 'aop/currentUser',
 	    current_service: 'aop/currentService',
-        services: 'aop/services'
+        services: 'aop/services',
+        users_data: 'aop/users_data'
     },
     environment: {
         aop: {
@@ -66,6 +67,7 @@ function Init(url) {
         DATA.client.subscribe(DATA.topics.current_user, { noLocal : true });
         DATA.client.subscribe(DATA.topics.current_service, { noLocal : true });
         DATA.client.subscribe(DATA.topics.services, { noLocal : true });
+        DATA.client.subscribe(DATA.topics.users_data, { noLocal : true });
 
         PostFrameMessage({ type: 'load', dest: 'profile' });
     });
@@ -84,6 +86,8 @@ function Init(url) {
 }
 
 function HandleMessage(t, m) {
+    console.log('MQTT message received:', t, m.toString().substring(0, 100));
+    
     if (t == DATA.topics.current_user) {
         DATA.environment.aop.currentUser = m.toString();
     }
@@ -94,6 +98,16 @@ function HandleMessage(t, m) {
             DATA.frame.setAttribute('src', DATA.services[sid].initialMediaURL);
         }
         return; // do not post
+    }
+    else if (t == 'aop/users_data') {
+        // Quando os dados de usuários são atualizados via MQTT
+        console.log('Forwarding users_data to frame');
+        PostFrameMessage({ 
+            type: 'message', 
+            topic: t, 
+            message: m.toString() 
+        });
+        return;
     }
     else if (t == DATA.topics.services) {
         DATA.services = JSON.parse(m.toString());

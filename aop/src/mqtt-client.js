@@ -10,8 +10,10 @@ const client = mqtt.connect(process.env.BROKER, {
 
 const TOPIC = {
     users: 'aop/users',
+    users_data: 'aop/users_data',
     current_user: 'aop/currentUser',
-    services: 'aop/services'
+    services: 'aop/services',
+    create_user: 'aop/createUser'
 }
 
 const TOPIC_HANDLER = new Map();

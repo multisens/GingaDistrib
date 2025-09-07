@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste - Criar Perfil</title>
+    <style>
+        body {
+            background-color: black;
+            color: white;
+            font-family: Verdana;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255,255,255,0.1);
+            padding: 30px;
+            border-radius: 10px;
+        }
+        input, select {
+            background: #333;
+            color: white;
+            border: 1px solid #666;
+            padding: 10px;
+            margin: 5px 0;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            margin: 10px 5px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .cancel {
+            background: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Criar Novo Perfil</h1>
+        
+        <form id="testForm">
+            <label>Nome:</label>
+            <input type="text" id="name" required placeholder="Digite seu nome">
+            
+            <label>Idade:</label>
+            <input type="number" id="age" placeholder="Digite sua idade">
+            
+            <label>Gênero:</label>
+            <select id="gender">
+                <option value="">Selecione...</option>
+                <option value="M">Masculino</option>
+                <option value="F">Feminino</option>
+                <option value="O">Outro</option>
+            </select>
+            
+            <label>Avatar:</label>
+            <select id="avatar">
+                <option value="0.png">Avatar 1</option>
+                <option value="1.png">Avatar 2</option>
+                <option value="2.png">Avatar 3</option>
+            </select>
+            
+            <br><br>
+            <button type="button" class="cancel" onclick="goBack()">Cancelar</button>
+            <button type="submit">Criar Perfil</button>
+        </form>
+    </div>
+    
+    <script>
+        document.getElementById('testForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const data = {
+                name: document.getElementById('name').value,
+                age: parseInt(document.getElementById('age').value) || null,
+                gender: document.getElementById('gender').value,
+                avatar: document.getElementById('avatar').value
+            };
+            
+            if (!data.name) {
+                alert('Nome é obrigatório!');
+                return;
+            }
+            
+            fetch('/profile/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    alert('Perfil criado com sucesso!');
+                    window.location.href = '/profile';
+                } else {
+                    alert('Erro: ' + result.error);
+                }
+            })
+            .catch(error => {
+                alert('Erro na comunicação: ' + error.message);
+            });
+        });
+        
+        function goBack() {
+            window.location.href = '/profile';
+        }
+    </script>
+</body>
+</html>

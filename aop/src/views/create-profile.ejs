@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Criar Novo Perfil - AoP</title>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            background-color: black;
+            overflow: hidden;
+        }
+        
+        .create-profile-container {
+            position: absolute;
+            top: 5%;
+            left: 5%;
+            width: 90%;
+            height: 90%;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            font-family: Verdana, sans-serif;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+
+        .create-profile-title {
+            color: rgb(255,255,255);
+            font-size: 37px;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 18px;
+            margin-bottom: 8px;
+            color: rgb(255,255,255);
+        }
+
+        .form-input, .form-select {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            border: 2px solid #333;
+            border-radius: 5px;
+            background-color: #222;
+            color: white;
+            box-sizing: border-box;
+        }
+
+        .form-input:focus, .form-select:focus {
+            outline: none;
+            border-color: #007bff;
+            background-color: #333;
+        }
+
+        .accessibility-group {
+            grid-column: 1 / -1;
+            background-color: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+        }
+
+        .accessibility-title {
+            font-size: 20px;
+            margin-bottom: 15px;
+            color: rgb(255,255,255);
+        }
+
+        .checkbox-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            font-size: 16px;
+            color: rgb(200,200,200);
+            cursor: pointer;
+        }
+
+        .checkbox-input {
+            margin-right: 10px;
+            width: 18px;
+            height: 18px;
+            accent-color: #007bff;
+        }
+
+        .button-container {
+            grid-column: 1 / -1;
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 30px;
+        }
+
+        .btn {
+            padding: 15px 40px;
+            font-size: 18px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            min-width: 150px;
+            transition: background-color 0.3s;
+        }
+
+        .btn-cancel {
+            background-color: #666;
+            color: white;
+        }
+
+        .btn-cancel:hover {
+            background-color: #777;
+        }
+
+        .btn-create {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .btn-create:hover {
+            background-color: #0056b3;
+        }
+
+        .footer-text {
+            position: absolute;
+            bottom: 2%;
+            left: 0;
+            width: 100%;
+            color: rgb(183,183,183);
+            font-size: 18px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="create-profile-container">
+    <h1 class="create-profile-title">Criar Novo Perfil</h1>
+    
+    <form id="createProfileForm">
+        <div class="form-grid">
+            <!-- Informações Básicas -->
+            <div class="form-group">
+                <label class="form-label" for="userName">Nome *</label>
+                <input type="text" id="userName" name="name" class="form-input" required placeholder="Digite o nome do usuário">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label" for="userAge">Idade</label>
+                <input type="number" id="userAge" name="age" class="form-input" min="1" max="120" placeholder="Digite a idade">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label" for="userGender">Gênero</label>
+                <select id="userGender" name="gender" class="form-select">
+                    <option value="">Selecione o gênero...</option>
+                    <option value="M">Masculino</option>
+                    <option value="F">Feminino</option>
+                    <option value="O">Outro</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label" for="userAvatar">Avatar</label>
+                <select id="userAvatar" name="avatar" class="form-select">
+                    <option value="0.png">Avatar Padrão 1</option>
+                    <option value="1.png">Avatar Padrão 2</option>
+                    <option value="2.png">Avatar Padrão 3</option>
+                    <option value="new.png">Avatar Genérico</option>
+                </select>
+            </div>
+            
+            <!-- Configurações de Acessibilidade -->
+            <div class="accessibility-group">
+                <h3 class="accessibility-title">Configurações de Acessibilidade</h3>
+                <div class="checkbox-grid">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="captions" name="captions" class="checkbox-input">
+                        Legendas Fechadas
+                    </label>
+                    
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="subtitle" name="subtitle" class="checkbox-input">
+                        Subtítulos
+                    </label>
+                    
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="signLanguage" name="signLanguageWindow" class="checkbox-input">
+                        Janela de Língua de Sinais
+                    </label>
+                    
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="audioDescription" name="audioDescription" class="checkbox-input">
+                        Audiodescrição
+                    </label>
+                    
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="dialogueEnhancement" name="dialogueEnhancement" class="checkbox-input">
+                        Melhoria de Diálogo
+                    </label>
+                </div>
+            </div>
+            
+            <!-- Botões -->
+            <div class="button-container">
+                <button type="button" id="cancelBtn" class="btn btn-cancel">Cancelar</button>
+                <button type="submit" id="createBtn" class="btn btn-create">Criar Perfil</button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<div class="footer-text">
+    Em conformidade com o Regulamento Geral de Proteção de Dados (GDPR),<br/>
+    as emissoras solicitarão permissão para usar os dados do seu perfil
+</div>
+
+<script>
+document.getElementById('createProfileForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = {
+        name: document.getElementById('userName').value.trim(),
+        age: parseInt(document.getElementById('userAge').value) || null,
+        gender: document.getElementById('userGender').value || null,
+        avatar: document.getElementById('userAvatar').value,
+        captions: document.getElementById('captions').checked,
+        subtitle: document.getElementById('subtitle').checked,
+        signLanguageWindow: document.getElementById('signLanguage').checked,
+        audioDescription: document.getElementById('audioDescription').checked,
+        dialogueEnhancement: document.getElementById('dialogueEnhancement').checked,
+        language: 'pt-br',
+        isGroup: false,
+        accessConsent: []
+    };
+    
+    // Validação básica
+    if (!formData.name) {
+        alert('Por favor, digite um nome para o perfil.');
+        document.getElementById('userName').focus();
+        return;
+    }
+    
+    // Desabilita o botão durante o envio
+    const createBtn = document.getElementById('createBtn');
+    const originalText = createBtn.textContent;
+    createBtn.textContent = 'Criando...';
+    createBtn.disabled = true;
+    
+    fetch('/profile/create', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Perfil criado com sucesso!');
+            window.location.href = '/profile';
+        } else {
+            alert('Erro ao criar perfil: ' + (data.error || 'Erro desconhecido'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Erro ao criar perfil. Verifique a conexão e tente novamente.');
+    })
+    .finally(() => {
+        // Reabilita o botão
+        createBtn.textContent = originalText;
+        createBtn.disabled = false;
+    });
+});
+
+document.getElementById('cancelBtn').addEventListener('click', function() {
+    if (confirm('Deseja cancelar a criação do perfil? As alterações serão perdidas.')) {
+        window.location.href = '/profile';
+    }
+});
+
+// Foco inicial no campo nome
+document.getElementById('userName').focus();
+
+// Navegação por teclado (estilo TV)
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        document.getElementById('cancelBtn').click();
+    }
+});
+</script>
+
+</body>
+</html>

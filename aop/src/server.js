@@ -30,6 +30,12 @@ app.use(function (req, res, next) {
 app.use('/load', mod_load);
 app.use('/profile', mod_profile);
 app.use('/dtv', mod_dtvcat);
+
+// Rota de debug
+app.get('/debug', (req, res) => {
+    res.sendFile(require('path').join(__dirname, '../debug-refresh.html'));
+});
+
 app.use('/', mod_frame);
 
 app.listen(_PORT, () => {
@@ -38,6 +44,18 @@ app.listen(_PORT, () => {
 
 // start mqtt client
 const mqttClient = require('./mqtt-client');
+
+// Handler para comandos de criação de usuário via MQTT
+mqttClient.addTopicHandler(mqttClient.TOPIC.create_user, (message) => {
+    try {
+        const userData = JSON.parse(message);
+        const profileService = require('./modules/profile/service');
+        const newUser = profileService.addNewUser(userData);
+        console.log('New user created via MQTT:', newUser.name);
+    } catch (error) {
+        console.error('Error creating user via MQTT:', error);
+    }
+});
 
 // notify loading is complete
 if (process.send) {

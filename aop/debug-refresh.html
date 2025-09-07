@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug - Refresh Monitor</title>
+    <style>
+        body {
+            background: black;
+            color: white;
+            font-family: monospace;
+            padding: 20px;
+        }
+        .log {
+            border: 1px solid #333;
+            padding: 10px;
+            margin: 10px 0;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .timestamp {
+            color: #888;
+        }
+        .warning {
+            color: orange;
+        }
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <h1>Debug Monitor - Page Refresh Detection</h1>
+    
+    <div id="info">
+        <p><strong>Página carregada às:</strong> <span id="loadTime"></span></p>
+        <p><strong>Recarregamentos detectados:</strong> <span id="refreshCount">0</span></p>
+        <p><strong>URL atual:</strong> <span id="currentUrl"></span></p>
+    </div>
+    
+    <div class="log" id="logContainer">
+        <div class="timestamp">Logs aparecerão aqui...</div>
+    </div>
+    
+    <button onclick="clearLogs()">Limpar Logs</button>
+    <button onclick="checkStatus()">Verificar Status</button>
+    
+    <script>
+        let refreshCount = 0;
+        const logContainer = document.getElementById('logContainer');
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const div = document.createElement('div');
+            div.className = type;
+            div.innerHTML = `<span class="timestamp">[${timestamp}]</span> ${message}`;
+            logContainer.appendChild(div);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+        
+        function clearLogs() {
+            logContainer.innerHTML = '<div class="timestamp">Logs limpos...</div>';
+        }
+        
+        function checkStatus() {
+            fetch('/profile/users')
+                .then(response => response.json())
+                .then(data => {
+                    log(`Status check - ${data.users ? data.users.length : 0} usuários encontrados`);
+                })
+                .catch(error => {
+                    log(`Erro no status check: ${error.message}`, 'error');
+                });
+        }
+        
+        // Detecta recarregamentos
+        if (performance.navigation.type === 1) {
+            refreshCount++;
+            localStorage.setItem('refreshCount', refreshCount);
+            log('REFRESH DETECTADO!', 'warning');
+        } else {
+            refreshCount = parseInt(localStorage.getItem('refreshCount') || '0');
+        }
+        
+        // Atualiza informações
+        document.getElementById('loadTime').textContent = new Date().toLocaleString();
+        document.getElementById('refreshCount').textContent = refreshCount;
+        document.getElementById('currentUrl').textContent = window.location.href;
+        
+        // Monitora mudanças de URL
+        let currentUrl = window.location.href;
+        setInterval(() => {
+            if (window.location.href !== currentUrl) {
+                log(`URL mudou: ${currentUrl} → ${window.location.href}`, 'warning');
+                currentUrl = window.location.href;
+            }
+        }, 1000);
+        
+        // Monitora eventos de beforeunload
+        window.addEventListener('beforeunload', function() {
+            log('BEFOREUNLOAD - Página está sendo descarregada', 'warning');
+        });
+        
+        // Monitora eventos de unload
+        window.addEventListener('unload', function() {
+            log('UNLOAD - Página foi descarregada', 'error');
+        });
+        
+        log('Monitor de debug iniciado');
+        log('Verificando status inicial...');
+        checkStatus();
+        
+        // Verifica status a cada 5 segundos
+        setInterval(checkStatus, 5000);
+    </script>
+</body>
+</html>

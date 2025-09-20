@@ -3,10 +3,10 @@ module.exports = {
         {
             name        : 'broker',
             script      : '/usr/sbin/mosquitto',
-            args        : '-c mosquitto/mosquitto.conf',
+            args        : '-c /mnt/c/Proj/GingaDistrib/mosquitto/mosquitto.conf',
             interpreter : 'none',
-            wait_ready  : true,
-            autorestart : false
+            wait_ready  : false,
+            autorestart : true
         },
         {
             name        : 'aop',

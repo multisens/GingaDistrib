@@ -1,156 +1,222 @@
 <!DOCTYPE html>
-<html>
-    <head>
-        <title>DTV</title>
-        <style>
-            body {
-                margin: 0;
-                padding: 0;
-                overflow: hidden;
-                background-color: rgb(40, 40, 40);
-                pointer-events: none;
-            }
-            .layers {
-                position: relative;
-                width: 100vw;
-                height: 100vh;
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <title>DTV + PDT + MQTT (localhost:8081)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-                * {
-                    position: absolute;
-                    top: 0;
-                    left: 0;
-                    width: 100%;
-                    height: 100%;
-                    border: none;
-                }
-            }
-            #video {
-                z-index: 1;
-            }
-            #graphics {
-                z-index: 2;
-            }
-            #rxgui {
-                z-index: 3;
-            }
-        </style>
-        
-        <link href="/css/video-js.css" rel="stylesheet" />
-        <script src="/js/jquery-3.7.1.min.js"></script>
-        <script src="/js/mqtt.min.js"></script>
-        <script src="/js/video.min.js"></script>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background-color: rgb(40, 40, 40);
+        pointer-events: none;
+      }
+      .layers {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+      }
+      .layers * {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        border: none;
+      }
+      #video { 
+          z-index: 1; 
+      }
+      #graphics { 
+          z-index: 2; 
+      }
+      #rxgui { 
+          z-index: 3; 
+      }
+    </style>
 
-        <script>
-            let player = null;
+    <link href="/css/video-js.css" rel="stylesheet" />
+    <script src="/js/jquery-3.7.1.min.js"></script>
+    <script src="/js/mqtt.min.js"></script>
+    <script src="/js/video.min.js"></script>
 
-            function connect(host) {
-                const client = mqtt.connect(`ws://${host}:9001/mqtt`, {
-                    clean: false,
-                    connectTimeout: 4000,
-                    clientId: 'rp-display',
-                });
-                client.on('connect', () => {
-                    subscribe_topics(client);
-                    fetch('ready');
-                });
-                client.on('message', (t, m) => { mqtt_message(client, t, m) });
-            }
+    <script>
+      let player = null;
+      let mqttClient = null;
 
-            function subscribe_topics(client) {
-                client.subscribe('aop/display/layers/+', { noLocal : true });
-                client.subscribe('aop/display/layers/video/+', { noLocal : true });
-            }
+      const BASE_URL = 'http://localhost:8081';
+      const PLAYLIST_URL = `${BASE_URL}/hls/playlist_1080p.m3u8`;
+      const EVENT_LIGHT_URL = `${BASE_URL}/light_events.json`;
+      const SEGMENT_DURATION = 2.0; 
 
-            function instance_player(mediaUrl, mediaType) {
-                if (!player) {
-                    player = videojs('video', {
-                        controls: true,
-                        autoplay: true,
-                        muted: true,
-                        playsinline: true,
-                        techOrder: ['html5'] 
-                    });
-                    
-                    player.src({ src: mediaUrl, type: mediaType });
-                    player.play();
-                }
-            }
+      function connect(host) {
+        mqttClient = mqtt.connect(`ws://${host}:9001/mqtt`, {
+          clean: false,
+          connectTimeout: 4000,
+          clientId: 'rp-display'
+        });
 
-            function set_video_url(url) {
-                if (url == '') {
-                    if (player && !player.isDisposed()) {
-                        player.dispose(true);
-                        player = null;
-                    }
-                    if ($('#video').length > 0) {
-                        $('#video').replaceWith('<video id="video" class="video-js" autoplay muted playsinline></video>');
-                    }
-                    else {
-                        $('#main').prepend('<video id="video" class="video-js" autoplay muted playsinline></video>');
-                    }
-                    return;
-                }
+        mqttClient.on('connect', () => {
+          console.log('🔗 Conectado ao broker MQTT');
+          subscribe_topics(mqttClient);
+          fetch('ready');
+        });
 
-                let mediaType = '';
-                if (url.endsWith('mpd')) {
-                    mediaType = 'application/dash+xml';
-                }
-                else if (url.endsWith('m3u8')) {
-                    mediaType = 'application/x-mpegURL';
-                }
+        mqttClient.on('message', (t, m) => { mqtt_message(mqttClient, t, m); });
+      }
 
-                if (mediaType) {
-                    try {
-                        instance_player(url, mediaType);
-                    } catch(err) {
-                        console.error('Error while processing DASH MPD/HLS M3U8:', err);
-                    }
-                }
-                else {
-                    $('#video').attr('src', url);
-                }
-            }
+      function subscribe_topics(client) {
+        client.subscribe('aop/display/layers/+', { noLocal: true });
+        client.subscribe('aop/display/layers/video/+', { noLocal: true });
+      }
 
-            function mqtt_message(client, topic, message) {
-                let t = topic.replace('aop/display/layers/', '');
-                if (['graphics', 'rxgui'].includes(t)) {
-                    $(`#${t}`).attr('src', message.toString());
-                }
-                else if (t == 'video/url') {
-                    set_video_url(message.toString());
-                }
-                else if (t == 'video/size') {
-                    $('#video').css(JSON.parse(message));
-                }
-            }
+      function instance_player(mediaUrl, mediaType) {
+        if (!player) {
+          player = videojs('video', {
+            controls: true,
+            autoplay: true,
+            muted: true,
+            playsinline: true,
+            techOrder: ['html5']
+          });
 
-            function relay_key(e) {
-                e.preventDefault();
-                if ([27, 33, 34, 93].includes(e.keyCode)) {
-                    // 27: Escape
-                    // 33, 34: PageUp, PageDown
-                    // 93: Windows Menu / Right ⌘ / ContextMenu / Esc
-                    fetch(`keydown/${e.keyCode}`);
-                }
-                else if ($('#rxgui').attr('src') != '') {
-                    $('#rxgui').contents()[0].dispatchEvent(new KeyboardEvent('keydown', {key: e.key}));
-                }
-                else if ($('#graphics').attr('src') != '') {
-                    $('#graphics').contents()[0].dispatchEvent(new KeyboardEvent('keydown', {key: e.key}));
-                }
-            }
-        </script>
-    </head>
-    <body>
-        <div id="main" class="layers">
-            <video id="video" class="video-js" autoplay muted playsinline></video>
-            <iframe id="graphics"></iframe>
-            <iframe id="rxgui"></iframe>
-        </div>
+          player.src({ src: mediaUrl, type: mediaType });
+          player.play();
 
-        <script>
-            document.addEventListener('keydown', relay_key);
-            connect('<%= mqtt_host %>');
-        </script>
-    </body>
+          integrarLightEvents();
+        }
+      }
+
+      function set_video_url(url) {
+        if (url === '') {
+          if (player && !player.isDisposed()) {
+            player.dispose(true);
+            player = null;
+          }
+          if ($('#video').length > 0) {
+            $('#video').replaceWith('<video id="video" class="video-js" autoplay muted playsinline></video>');
+          } else {
+            $('#main').prepend('<video id="video" class="video-js" autoplay muted playsinline></video>');
+          }
+          return;
+        }
+
+        let mediaType = '';
+        if (url.endsWith('mpd')) mediaType = 'application/dash+xml';
+        else if (url.endsWith('m3u8')) mediaType = 'application/x-mpegURL';
+
+        if (mediaType) {
+          try {
+            instance_player(url, mediaType);
+          } catch (err) {
+            console.error('❌ Erro ao processar MPD/M3U8:', err);
+          }
+        } else {
+          $('#video').attr('src', url);
+        }
+      }
+
+      async function integrarLightEvents() {
+        try {
+          const res = await fetch(EVENT_LIGHT_URL + '?t=' + Date.now());
+          const eventos = await res.json();
+          console.log('📜 Eventos de luz carregados:', eventos);
+
+          const ativos = new Set();
+          player.off('timeupdate');
+
+          player.on('timeupdate', () => {
+            const tempo = player.currentTime();
+            const segmento = Math.floor(tempo / SEGMENT_DURATION);
+
+            eventos.forEach(ev => {
+              if (segmento >= ev.SegStart && segmento <= ev.SegEnd) {
+                if (!ativos.has(ev.Name)) {
+                  ativos.add(ev.Name);
+                  console.log(`🚀 Evento disparado: ${ev.Name}`, ev);
+
+                  if (mqttClient && mqttClient.connected) {
+                    mqttClient.publish('video/event', JSON.stringify({
+                      action: ev.Action,
+                      name: ev.Name,
+                      color: ev.Color,
+                      segmento,
+                      timestamp: Date.now()
+                    }));
+                  }
+                }
+              } else {
+                ativos.delete(ev.Name);
+              }
+            });
+          });
+
+          player.on('ended', async () => {
+            console.log('🔁 Vídeo terminou — reiniciando loop + recarregando eventos...');
+            await integrarLightEvents();
+            player.src({ src: PLAYLIST_URL, type: 'application/x-mpegURL' });
+            // essa chamada player.play() em JS fora de um gesto do usuário está gerando erro 
+            // erro: Uncaught (in promise) AbortError: The play() request was interrupted by a new load request. https://goo.gl/LdLk22
+            player.play();
+
+            if (mqttClient && mqttClient.connected)
+              mqttClient.publish('video/restart', JSON.stringify({ timestamp: Date.now() }));
+          });
+
+          player.on('error', async () => {
+            console.warn('⚠️ Erro no player — tentando reiniciar...');
+            await integrarLightEvents();
+            setTimeout(() => {
+              player.src({ src: PLAYLIST_URL, type: 'application/x-mpegURL' });
+              player.play();
+            }, 2000);
+          });
+
+        } catch (err) {
+          console.error('❌ Erro ao carregar light_events.json:', err);
+        }
+      }
+
+      function mqtt_message(client, topic, message) {
+        const t = topic.replace('aop/display/layers/', '');
+        if (['graphics', 'rxgui'].includes(t)) {
+          $(`#${t}`).attr('src', message.toString());
+        } else if (t === 'video/url') {
+          set_video_url(message.toString());
+        } else if (t === 'video/size') {
+          $('#video').css(JSON.parse(message));
+        }
+      }
+
+      function relay_key(e) {
+        e.preventDefault();
+        if ([27, 33, 34, 93].includes(e.keyCode)) {
+          fetch(`keydown/${e.keyCode}`);
+        } else if ($('#rxgui').attr('src') !== '') {
+          $('#rxgui').contents()[0].dispatchEvent(new KeyboardEvent('keydown', { key: e.key }));
+        } else if ($('#graphics').attr('src') !== '') {
+          $('#graphics').contents()[0].dispatchEvent(new KeyboardEvent('keydown', { key: e.key }));
+        }
+      }
+
+      window.addEventListener('DOMContentLoaded', () => {
+        connect('localhost');
+        // Adicionar isso no momento em que clicar em algum dos canais (cefet, uff)
+        set_video_url(PLAYLIST_URL);
+      });
+    </script>
+  </head>
+  <body>
+    <div id="main" class="layers">
+      <video id="video" class="video-js" autoplay muted playsinline></video>
+      <iframe id="graphics"></iframe>
+      <iframe id="rxgui"></iframe>
+    </div>
+
+    <script>
+      document.addEventListener('keydown', relay_key);
+    </script>
+  </body>
 </html>

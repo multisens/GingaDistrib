@@ -80,7 +80,7 @@
                         width: auto;
                         height: auto;
                         padding: 8px 16px;
-                        background-color: rgb(100, 100, 100);
+                        background-color: rgb(100 100 100);
                         border-radius: 5px;
                     }
                 }
@@ -111,6 +111,12 @@
             .focused {
                 outline: 2px solid rgb(200, 200, 200);
             }
+
+            #event-background {
+                z-index: 0;
+                background-color: rgb(40 40 40);
+            }
+
             #video {
                 z-index: 1;
             }
@@ -119,6 +125,9 @@
             }
             #rxgui {
                 z-index: 3;
+            }
+            #popup {
+                z-index: 99;
             }
         </style>
         
@@ -133,6 +142,7 @@
         <script>
             let player = null;
             let publishTopic = null;
+            let currentEventColor = null;
 
             function connect(host) {
                 const client = mqtt.connect(`ws://${host}:9001/mqtt`, {
@@ -217,9 +227,62 @@
                 }
             }
 
+            function apply_event_color(data) {
+                if (
+                    !data ||
+                    !Array.isArray(data.color)
+                ) {
+                    return;
+                }
+
+                const [r, g, b] =
+                    data.color;
+
+                const color =
+                    `rgb(${r}, ${g}, ${b})`;
+
+                currentEventColor =
+                    color;
+
+                const background =
+                    document.getElementById(
+                        'event-background'
+                    );
+
+                if (background) {
+                    background.style.backgroundColor =
+                        color;
+                }
+            }
+
+
             function mqtt_message(client, topic, message) {
                 if (topic == 'video/event') {
-                    $('#graphics').contents()[0].dispatchEvent(new CustomEvent('stream_event', { detail: message }));
+                    try {
+                        const data =
+                            JSON.parse(
+                                message.toString()
+                            );
+                        apply_event_color(data);
+
+                    } catch (err) {
+                        console.error(
+                            'Erro ao interpretar evento:',
+                            err
+                        );
+                    }
+
+
+                    $('#graphics')
+                        .contents()[0]
+                        .dispatchEvent(
+                            new CustomEvent(
+                                'stream_event',
+                                {
+                                    detail: message
+                                }
+                            )
+                        );
                 }
 
                 let t = topic.replace('aop/display/layers/', '');
@@ -261,6 +324,7 @@
     </head>
     <body>
         <div id="main" class="layers">
+            <div id="event-background"></div>
             <video id="video" class="video-js" autoplay muted playsinline></video>
             <iframe id="graphics"></iframe>
             <iframe id="rxgui"></iframe>

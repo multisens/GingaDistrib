@@ -37,7 +37,8 @@ const _t = {
     gui_layer: 'aop/display/layers/rxgui',
     pmplayer_url : 'aop/display/layers/video/url',
     pmplayer_size : 'aop/display/layers/video/size',
-    graphics_layer: 'aop/display/layers/graphics'
+    graphics_layer: 'aop/display/layers/graphics',
+    video_event: 'video/event'
 };
 
 const _topics = new Map([
@@ -109,6 +110,21 @@ function setVideoURL(url = '') {
         client.publish(_t.pmplayer_url, url);
     }
 }
+
+// function setVideoURL(url = 'live/dash/playlist_1080.mpd') {
+//     if (url.endsWith('.m3u8') || url.endsWith('.mpd')) {
+//         const file = url.split('/').pop();
+
+//         DATA.videoStreamURL = url.replace(`/${file}`, '');
+
+//         client.publish(
+//             _t.pmplayer_url,
+//             `/videoStreamProxy/${file}`
+//         );
+//     } else {
+//         client.publish(_t.pmplayer_url, url);
+//     }
+// }
 
 function setVideoSize(top = '0', left = '0', width = '100%', height = '100%') {
     client.publish(_t.pmplayer_size, JSON.stringify({

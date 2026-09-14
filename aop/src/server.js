@@ -59,7 +59,7 @@ const proxyGraphics = createProxyMiddleware({
 app.use('/graphicsAppProxy', proxyGraphics);
 
 const proxyStream = createProxyMiddleware({
-    target: '',
+    target: 'http://localhost:8081',
     changeOrigin: true,
     router: (req) => {
         return core.getVideoStreamURL();

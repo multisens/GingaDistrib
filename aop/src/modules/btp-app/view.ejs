@@ -194,6 +194,7 @@
         </style>
         <script src="/js/jquery-3.7.1.min.js"></script>
         <script src="/js/navigation.js"></script>
+        <script src="/js/mqtt.min.js"></script>
     </head>
     <body>
         <div class="main">
@@ -247,6 +248,49 @@
             function fullscreen() {
                 fetch(`<%= basepath %>/fullscr`);
             }
+
+            /*
+            * Conecta diretamente no MQTT.
+            * Este clientId precisa ser diferente do clientId usado pelo DTV principal.
+            */
+            const mqttHost = window.location.hostname;
+            const client = mqtt.connect(`ws://${mqttHost}:9001/mqtt`, {
+                clean: false,
+                connectTimeout: 4000,
+                clientId: 'rp-graphics'
+            });
+
+            client.on('connect', () => {
+                console.log('✅ GRAPHICS conectado ao MQTT');
+                client.subscribe('video/event', { noLocal: true });
+            });
+
+            const currentAppName = "<%= appName %>";
+
+            client.on('message', (topic, message) => {
+                if (topic !== 'video/event') return;
+
+                try {
+                    const data = JSON.parse(message.toString());
+
+                    if (data.app && data.app !== currentAppName) {
+                        return;
+                    }
+
+                    if (!Array.isArray(data.color)) return;
+
+                    const [r, g, b] = data.color;
+                    const color = `rgb(${r}, ${g}, ${b})`;
+
+                    console.log(`🎨 Aplicando cor para [${currentAppName}]:`, color);
+
+                    // Altera a cor apenas da tela/app atual
+                    document.documentElement.style.setProperty('--background-color', color);
+
+                } catch (err) {
+                    console.error('❌ Erro ao processar mensagem MQTT:', err);
+                }
+            });
         </script>
-  </body>
+    </body>
 </html>

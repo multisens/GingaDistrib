@@ -17,6 +17,7 @@ var (
 	mu            sync.Mutex
 	cancelWatcher context.CancelFunc
 	currentURL    string
+	watcherID     uint64
 )
 
 func main() {
@@ -25,28 +26,59 @@ func main() {
 		SetClientID("aop-receiver-go").
 		SetAutoReconnect(true)
 
-	// Callback acionada ao conectar no broker MQTT
 	opts.SetOnConnectHandler(func(client mqtt.Client) {
-		fmt.Println("✅ [AoP] Connected to MQTT Broker successfully!")
-		fmt.Println("👀 [AoP] Waiting for messages on video topic...")
+		fmt.Println("✅ [AoP] Connected to MQTT Broker!")
+		fmt.Println("👀 [AoP] Waiting for video URLs...")
 
-		// Subscrição nos tópicos de URL do vídeo
-		client.Subscribe("aop/display/layers/video/url", 1, handleVideoURL)
-		client.Subscribe("video/url", 1, handleVideoURL)
+		topics := []string{
+			"aop/display/layers/video/url",
+			"video/url",
+		}
+
+		for _, topic := range topics {
+			token := client.Subscribe(
+				topic,
+				1,
+				handleVideoURL,
+			)
+
+			token.Wait()
+
+			if err := token.Error(); err != nil {
+				log.Printf(
+					"❌ Subscribe %s: %v",
+					topic,
+					err,
+				)
+			}
+		}
 	})
 
 	config.MQTTClient = mqtt.NewClient(opts)
-	if err := config.MQTTClient.Connect().Wait(); config.MQTTClient.Connect().Error() != nil {
-		log.Printf("⚠️ [AoP] Error connecting to MQTT: %v", err)
+
+	token := config.MQTTClient.Connect()
+	token.Wait()
+
+	if err := token.Error(); err != nil {
+		log.Printf("❌ MQTT connection error: %v", err)
 	}
 
-	// Mantém o processo em execução contínua
 	select {}
 }
 
-func handleVideoURL(client mqtt.Client, msg mqtt.Message) {
-	rawPayload := strings.TrimSpace(string(msg.Payload()))
-	fmt.Printf("\n📨 [MQTT] Topic: %s | Payload: %q\n", msg.Topic(), rawPayload)
+func handleVideoURL(
+	client mqtt.Client,
+	msg mqtt.Message,
+) {
+	rawPayload := strings.TrimSpace(
+		string(msg.Payload()),
+	)
+
+	fmt.Printf(
+		"\n📨 [MQTT] Topic: %s | Payload: %q\n",
+		msg.Topic(),
+		rawPayload,
+	)
 
 	if rawPayload == "" {
 		return
@@ -57,76 +89,74 @@ func handleVideoURL(client mqtt.Client, msg mqtt.Message) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	// Se for a mesma URL já em reprodução, ignora
 	if newURL == currentURL {
 		return
 	}
 
-	// 1. Sempre cancela e interrompe qualquer monitoramento DASH anterior
+	// Cancela o watcher anterior.
 	if cancelWatcher != nil {
-		fmt.Println("🛑 [AoP] Stopping previous DASH monitoring...")
+		fmt.Println("🛑 [AoP] Stopping previous monitor...")
 		cancelWatcher()
 		cancelWatcher = nil
 	}
 
 	currentURL = newURL
+	watcherID++
 
-	// 2. Se for HLS (.m3u8) ou outro formato que não seja .mpd, encerra o fluxo do DASH
-	if !strings.HasSuffix(strings.ToLower(newURL), ".mpd") {
-		fmt.Printf("⏹️ [AoP] New format detected (%s). DASH monitor stopped.\n", newURL)
+	parsedURL, err := url.Parse(newURL)
+
+	if err != nil ||
+		!strings.HasSuffix(
+			strings.ToLower(parsedURL.Path),
+			".mpd",
+		) {
+
+		fmt.Println("⏹️ [AoP] Non-DASH video detected")
 		return
 	}
 
-	// 3. Se for DASH (.mpd), cria um novo contexto e inicia o monitoramento
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(
+		context.Background(),
+	)
+
 	cancelWatcher = cancel
+	id := watcherID
 
-	go processDASHStream(ctx, newURL)
+	go func() {
+		services.WatchSegmentsMPD(ctx, newURL)
+
+		mu.Lock()
+		if watcherID == id {
+			cancelWatcher = nil
+		}
+		mu.Unlock()
+	}()
 }
 
-func processDASHStream(ctx context.Context, mpdURL string) {
-	fmt.Printf("📥 [AoP] Fetching MPD manifest: %s\n", mpdURL)
-
-	if err := services.FetchAndParseMPD(mpdURL); err != nil {
-		log.Printf("❌ [AoP] Error processing MPD: %v", err)
-		return
-	}
-
-	if ctx.Err() != nil {
-		return
-	}
-
-	baseURL := extractBaseURL(mpdURL)
-
-	fmt.Println("🚀 [AoP] Starting DASH segment monitoring...")
-	services.WatchSegmentsHTTP(ctx, baseURL)
-}
-
-// Normaliza URLs relativas enviadas pelo broker para o servidor Express local
 func normalizeURL(rawPayload string) string {
-	if strings.HasPrefix(rawPayload, "http://") || strings.HasPrefix(rawPayload, "https://") {
+	if strings.HasPrefix(rawPayload, "http://") ||
+		strings.HasPrefix(rawPayload, "https://") {
 		return rawPayload
 	}
 
 	baseExpress := "http://localhost:8081/live/dash"
-	if strings.HasPrefix(rawPayload, "/videoStreamProxy/") {
-		file := strings.TrimPrefix(rawPayload, "/videoStreamProxy/")
+
+	if strings.HasPrefix(
+		rawPayload,
+		"/videoStreamProxy/",
+	) {
+		file := strings.TrimPrefix(
+			rawPayload,
+			"/videoStreamProxy/",
+		)
+
 		return fmt.Sprintf("%s/%s", baseExpress, file)
 	}
 
 	cleanPath := strings.TrimLeft(rawPayload, "/")
-	return fmt.Sprintf("http://localhost:8081/live/%s", cleanPath)
-}
 
-// Extrai o caminho base do diretório removendo o nome do arquivo final
-func extractBaseURL(rawURL string) string {
-	parsed, err := url.Parse(rawURL)
-	if err != nil {
-		return "http://localhost:8081/live/dash"
-	}
-	idx := strings.LastIndex(parsed.Path, "/")
-	if idx != -1 {
-		return fmt.Sprintf("%s://%s%s", parsed.Scheme, parsed.Host, parsed.Path[:idx])
-	}
-	return fmt.Sprintf("%s://%s", parsed.Scheme, parsed.Host)
+	return fmt.Sprintf(
+		"http://localhost:8081/live/%s",
+		cleanPath,
+	)
 }

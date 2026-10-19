@@ -273,16 +273,7 @@
                     }
 
 
-                    $('#graphics')
-                        .contents()[0]
-                        .dispatchEvent(
-                            new CustomEvent(
-                                'stream_event',
-                                {
-                                    detail: message
-                                }
-                            )
-                        );
+                    $('#graphics').contents()[0].dispatchEvent(new CustomEvent('stream_event',{detail: message}));
                 }
 
                 let t = topic.replace('aop/display/layers/', '');

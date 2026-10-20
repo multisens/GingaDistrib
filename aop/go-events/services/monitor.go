@@ -10,43 +10,24 @@ import (
 	"net/http"
 	"strings"
 	"time"
-
-	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
 type DASHSession struct {
 	CurrentGlobalSegment int
 	SegmentsPerLoop      int
-
-	Events       []models.Evento
-	ActiveEvents map[string]bool
+	Events               []models.Evento
+	ActiveEventKey       string
 }
 
 func NewDASHSession() *DASHSession {
-	return &DASHSession{
-		ActiveEvents: make(map[string]bool),
-	}
+	return &DASHSession{}
 }
 
-// Busca uma versão atualizada do MPD.
-func FetchMPD(
-	ctx context.Context,
-	client *http.Client,
-	mpdURL string,
-) (*models.MPD, error) {
-
-	req, err := http.NewRequestWithContext(
-		ctx,
-		http.MethodGet,
-		mpdURL,
-		nil,
-	)
+func FetchMPD(ctx context.Context, client *http.Client, mpdURL string) (*models.MPD, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, mpdURL, nil)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Set("Cache-Control", "no-cache")
-	req.Header.Set("Pragma", "no-cache")
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -55,386 +36,179 @@ func FetchMPD(
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf(
-			"HTTP status %d",
-			resp.StatusCode,
-		)
+		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
 
 	var mpd models.MPD
-
-	if err := xml.NewDecoder(resp.Body).Decode(&mpd); err != nil {
-		return nil, fmt.Errorf(
-			"erro ao interpretar MPD: %w",
-			err,
-		)
-	}
-
-	return &mpd, nil
+	return &mpd, xml.NewDecoder(resp.Body).Decode(&mpd)
 }
 
-func getVideoTemplate(mpd *models.MPD) (models.SegmentTemplate, error) {
-	for _, adaptation := range mpd.Period.AdaptationSets {
-		if adaptation.ContentType != "" &&
-			adaptation.ContentType != "video" {
+func GetLatestChunk(mpd *models.MPD) (int, error) {
+	var template models.SegmentTemplate
+	for _, a := range mpd.Period.AdaptationSets {
+		if a.ContentType != "" && a.ContentType != "video" {
 			continue
 		}
-
-		for _, representation := range adaptation.Representations {
-			template := representation.SegmentTemplate
-
-			// Alguns MPDs colocam o SegmentTemplate
-			// diretamente no AdaptationSet.
-			if template.StartNumber == 0 {
-				template = adaptation.SegmentTemplate
+		for _, r := range a.Representations {
+			t := r.SegmentTemplate
+			if t.StartNumber == 0 {
+				t = a.SegmentTemplate
 			}
-
-			if template.StartNumber > 0 &&
-				len(template.SegmentTimeline.Segments) > 0 {
-				return template, nil
+			if t.StartNumber > 0 && len(t.SegmentTimeline.Segments) > 0 {
+				template = t
+				break
 			}
 		}
 	}
 
-	return models.SegmentTemplate{},
-		fmt.Errorf("SegmentTemplate de vídeo não encontrado")
-}
-
-// Calcula o último chunk anunciado pelo manifesto.
-func GetLatestChunk(mpd *models.MPD) (int, error) {
-	template, err := getVideoTemplate(mpd)
-	if err != nil {
-		return 0, err
+	if template.StartNumber == 0 {
+		return 0, fmt.Errorf("[Error] SegmentTemplate não encontrado")
 	}
 
 	latest := template.StartNumber - 1
-
-	for _, segment := range template.SegmentTimeline.Segments {
-		if segment.Repeat < 0 {
-			return 0, fmt.Errorf("r negativo não suportado")
+	for _, seg := range template.SegmentTimeline.Segments {
+		if seg.Repeat < 0 {
+			return 0, fmt.Errorf("[Error] r negativo não suportado")
 		}
-
-		latest += segment.Repeat + 1
+		latest += seg.Repeat + 1
 	}
-
 	return latest, nil
 }
 
-// Gera uma chave estável para cada evento.
 func eventKey(evt models.Evento) string {
-	return fmt.Sprintf(
-		"%d:%d:%s:%s",
-		evt.SegStart,
-		evt.SegEnd,
-		evt.Name,
-		evt.Desc,
-	)
+	return fmt.Sprintf("%d:%d:%s:%s", evt.SegStart, evt.SegEnd, evt.Name, evt.Desc)
 }
 
-// Atualiza os eventos presentes no MPD.
-// Não reinicializa ActiveEvents a cada consulta.
-func (s *DASHSession) LoadEvents(
-	mpd *models.MPD,
-) error {
-
+func (s *DASHSession) LoadEvents(mpd *models.MPD) error {
 	stream := mpd.Period.EventStream
-
 	events := make([]models.Evento, 0, len(stream.EventItems))
-	maxEnd := 0
 
 	for _, item := range stream.EventItems {
 		var payload models.MPDEventPayload
-
-		if err := json.Unmarshal(
-			[]byte(strings.TrimSpace(item.Data)),
-			&payload,
-		); err != nil {
-			fmt.Printf(
-				"⚠️ [EVENT] ID %s: JSON inválido: %v\n",
-				item.ID,
-				err,
-			)
+		if json.Unmarshal([]byte(strings.TrimSpace(item.Data)), &payload) != nil {
 			continue
 		}
 
-		start := payload.SegStart
-		end := payload.SegEnd
-
-		// Fallback para atributos XML.
-		if start == 0 && item.SegStart != 0 {
+		start, end := payload.SegStart, payload.SegEnd
+		if start == 0 {
 			start = item.SegStart
 		}
-
-		if end == 0 && item.SegEnd != 0 {
+		if end == 0 {
 			end = item.SegEnd
 		}
 
-		// Convenção: início inclusivo, fim exclusivo.
 		if start < 0 || end <= start {
-			fmt.Printf(
-				"⚠️ [EVENT] ID %s: intervalo inválido [%d,%d)\n",
-				item.ID,
-				start,
-				end,
-			)
 			continue
-		}
-
-		if end > maxEnd {
-			maxEnd = end
 		}
 
 		events = append(events, models.Evento{
-			SegStart: start,
-			SegEnd:   end,
-			Name:     payload.Action.Name,
-			Desc:     payload.Action.Description,
-			Color:    payload.Action.Color,
+			SegStart: start, SegEnd: end,
+			Name: payload.Action.Name, Desc: payload.Action.Description, Color: payload.Action.Color,
 		})
 	}
 
-	// ATENÇÃO:
-	// Este valor precisa representar o número REAL
-	// de chunks em cada repetição do vídeo.
-	//
-	// Se maxSegment não for confiável, não podemos
-	// deduzir esse total apenas pelo último evento.
-	total := stream.LastSegment
-
-	if total <= 0 {
-		return fmt.Errorf(
-			"total de chunks por loop não configurado",
-		)
+	if stream.LastSegment <= 0 {
+		return fmt.Errorf("[Error] total de chunks não configurado")
 	}
 
-	// Preserva eventos ativos que ainda existem.
-	validKeys := make(map[string]bool)
-
-	for _, evt := range events {
-		validKeys[eventKey(evt)] = true
-	}
-
-	for key := range s.ActiveEvents {
-		if !validKeys[key] {
-			delete(s.ActiveEvents, key)
-		}
-	}
-
-	s.Events = events
-	s.SegmentsPerLoop = total
-
+	s.Events, s.SegmentsPerLoop = events, stream.LastSegment
 	return nil
 }
 
-// Envia um evento e aguarda confirmação do broker.
-//
-// QoS 1 confirma o recebimento pelo broker,
-// não necessariamente pelo consumidor final.
-func publishEvent(
-	ctx context.Context,
-	payload []byte,
-) error {
-
-	if config.MQTTClient == nil ||
-		!config.MQTTClient.IsConnected() {
-		return fmt.Errorf("MQTT desconectado")
+// Publica com retained = true para a interface manter o estado atual fixo
+func publishEvent(payload []byte) error {
+	if config.MQTTClient == nil || !config.MQTTClient.IsConnected() {
+		return fmt.Errorf("[Error] Falha ao publicar evento, MQTT desconectado")
 	}
-
-	token := config.MQTTClient.Publish(
-		"video/event",
-		1,
-		false,
-		payload,
-	)
-
-	for {
-		if token.WaitTimeout(100 * time.Millisecond) {
-			return token.Error()
-		}
-
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-	}
+	token := config.MQTTClient.Publish("video/event", 1, true, payload)
+	token.Wait()
+	return token.Error()
 }
 
-// Processa os eventos para o segmento atual.
-func (s *DASHSession) checkAndPublishEvents(
-	ctx context.Context,
-	relativeSegment int,
-) {
+func (s *DASHSession) checkAndPublishEvents(ctx context.Context, relativeSegment int) {
+	var currentActiveEvent *models.Evento
+	var currentActiveKey string
+
+	// 1. Identifica o evento que engloba o chunk relativo atual
 	for _, evt := range s.Events {
-		if ctx.Err() != nil {
-			return
+		if relativeSegment >= evt.SegStart && relativeSegment < evt.SegEnd {
+			e := evt
+			currentActiveEvent = &e
+			currentActiveKey = eventKey(evt)
+			break
 		}
+	}
 
-		key := eventKey(evt)
+	// 2. Transição de estado: Só altera quando muda o evento ativo
+	if s.ActiveEventKey != currentActiveKey {
+		s.ActiveEventKey = currentActiveKey
 
-		inside := relativeSegment >= evt.SegStart &&
-			relativeSegment < evt.SegEnd
+		if currentActiveEvent != nil {
+			// Entrou em um evento -> Dispara payload e retém no MQTT
+			payload, _ := json.Marshal(models.EventPayload{
+				Name:        currentActiveEvent.Name,
+				Description: currentActiveEvent.Desc,
+				Color:       currentActiveEvent.Color,
+				SegStart:    currentActiveEvent.SegStart,
+				SegEnd:      currentActiveEvent.SegEnd,
+			})
 
-		if !inside {
-			delete(s.ActiveEvents, key)
-			continue
+			if err := publishEvent(payload); err == nil {
+				fmt.Printf("[MQTT] Evento na tela: %s (Chunk %d [%d, %d))\n",
+					currentActiveEvent.Name, relativeSegment, currentActiveEvent.SegStart, currentActiveEvent.SegEnd)
+			}
+		} else {
+			// O evento terminou -> Limpa a retenção no MQTT com payload vazio
+			if err := publishEvent([]byte{}); err == nil {
+				fmt.Printf("[MQTT] Evento finalizado no chunk %d\n", relativeSegment)
+			}
 		}
-
-		if s.ActiveEvents[key] {
-			continue
-		}
-
-		payload, err := json.Marshal(models.EventPayload{
-			Name:        evt.Name,
-			Description: evt.Desc,
-			Color:       evt.Color,
-			SegStart:    evt.SegStart,
-			SegEnd:      evt.SegEnd,
-		})
-
-		if err != nil {
-			fmt.Printf(
-				"❌ [EVENT] Erro ao serializar %s: %v\n",
-				evt.Name,
-				err,
-			)
-			continue
-		}
-
-		fmt.Printf(
-			"🎯 [EVENT] Detectado: %s | Chunk relativo: %d | Intervalo: [%d,%d)\n",
-			evt.Name,
-			relativeSegment,
-			evt.SegStart,
-			evt.SegEnd,
-		)
-
-		if err := publishEvent(ctx, payload); err != nil {
-			fmt.Printf(
-				"❌ [MQTT] Falha ao publicar %s: %v\n",
-				evt.Name,
-				err,
-			)
-			continue
-		}
-
-		s.ActiveEvents[key] = true
-
-		fmt.Printf(
-			"✅ [MQTT] Publicação confirmada: %s\n",
-			string(payload),
-		)
 	}
 }
 
-// Consulta o MPD a cada segundo.
-func WatchSegmentsMPD(
-	ctx context.Context,
-	mpdURL string,
-) {
-	client := &http.Client{
-		Timeout: 3 * time.Second,
-	}
-
+func WatchSegmentsMPD(ctx context.Context, mpdURL string) {
+	client := &http.Client{Timeout: 3 * time.Second}
 	session := NewDASHSession()
-
-	ticker := time.NewTicker(time.Second)
+	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
 	lastChunk := -1
 
-	fmt.Println("👀 [DASH] Monitoring:", mpdURL)
-
 	check := func() {
 		mpd, err := FetchMPD(ctx, client, mpdURL)
-		if err != nil {
-			if ctx.Err() == nil {
-				fmt.Println("❌ [DASH] MPD fetch:", err)
-			}
+		if err != nil || ctx.Err() != nil {
 			return
 		}
 
-		if ctx.Err() != nil {
-			return
-		}
-
-		// Atualiza eventos em todas as consultas.
 		if err := session.LoadEvents(mpd); err != nil {
-			fmt.Println("❌ [DASH] Eventos:", err)
 			return
 		}
-
 		latestChunk, err := GetLatestChunk(mpd)
 		if err != nil {
-			fmt.Println("❌ [DASH] Último chunk:", err)
-			return
-		}
-
-		if latestChunk == lastChunk {
 			return
 		}
 
 		if lastChunk >= 0 && latestChunk < lastChunk {
-			fmt.Println("🔄 [DASH] Stream reiniciado")
-			session.ActiveEvents = make(map[string]bool)
+			session.ActiveEventKey = ""
 			lastChunk = -1
 		}
 
-		firstChunk := lastChunk + 1
+		relativeSegment := (latestChunk - 1) % session.SegmentsPerLoop
+		session.CurrentGlobalSegment = latestChunk
 
-		// Na primeira consulta, sincroniza com o
-		// chunk atual, sem reproduzir todo o histórico.
-		if lastChunk == -1 {
-			firstChunk = latestChunk
-		}
-
-		if latestChunk > firstChunk {
-			fmt.Printf(
-				"⚠️ [DASH] MPD avançou %d chunks; processando intermediários\n",
-				latestChunk-firstChunk+1,
-			)
-		}
-
-		total := session.SegmentsPerLoop
-
-		for chunk := firstChunk; chunk <= latestChunk; chunk++ {
-			if ctx.Err() != nil {
-				return
-			}
-
-			// Convenção zero-based: 0 até total-1.
-			relativeSegment := (chunk - 1) % total
-
-			session.CurrentGlobalSegment = chunk
-
-			fmt.Printf(
-				"📦 [DASH] Chunk global=%d | relativo=%d\n",
-				chunk,
-				relativeSegment,
-			)
-
-			session.checkAndPublishEvents(
-				ctx,
-				relativeSegment,
-			)
-		}
-
+		session.checkAndPublishEvents(ctx, relativeSegment)
 		lastChunk = latestChunk
 	}
 
-	// Primeira leitura imediata.
 	check()
-
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Println("⏹️ [DASH] Monitoring stopped")
+			// Ao encerrar o monitoramento, limpa o estado retido no broker
+			_ = publishEvent([]byte{})
 			return
-
 		case <-ticker.C:
 			check()
 		}
 	}
 }
-
-// Referência explícita ao pacote MQTT para facilitar
-// eventual extensão com tokens e handlers.
-var _ mqtt.Token

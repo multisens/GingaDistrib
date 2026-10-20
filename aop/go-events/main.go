@@ -21,14 +21,13 @@ var (
 )
 
 func main() {
-	opts := mqtt.NewClientOptions().
-		AddBroker("tcp://localhost:1883").
-		SetClientID("aop-receiver-go").
-		SetAutoReconnect(true)
+	brokerURL := "tcp://localhost:1883"
+	clientID := "aop-receiver-go"
 
-	opts.SetOnConnectHandler(func(client mqtt.Client) {
-		fmt.Println("✅ [AoP] Connected to MQTT Broker!")
-		fmt.Println("👀 [AoP] Waiting for video URLs...")
+	// Callback executado na conexão inicial e em cada reconexão automática
+	onConnectHandler := func(c mqtt.Client) {
+		fmt.Println("[AoP] Conectado ao Broker MQTT")
+		fmt.Println("[AoP] Aguardando URLs de vídeo")
 
 		topics := []string{
 			"aop/display/layers/video/url",
@@ -36,66 +35,49 @@ func main() {
 		}
 
 		for _, topic := range topics {
-			token := client.Subscribe(
-				topic,
-				1,
-				handleVideoURL,
-			)
-
+			token := c.Subscribe(topic, 1, handleVideoURL)
 			token.Wait()
-
 			if err := token.Error(); err != nil {
-				log.Printf(
-					"❌ Subscribe %s: %v",
-					topic,
-					err,
-				)
+				log.Printf("❌ [Error] Subscribe %s: %v", topic, err)
 			}
 		}
-	})
-
-	config.MQTTClient = mqtt.NewClient(opts)
-
-	token := config.MQTTClient.Connect()
-	token.Wait()
-
-	if err := token.Error(); err != nil {
-		log.Printf("❌ MQTT connection error: %v", err)
 	}
 
+	// Inicializa o MQTT utilizando a função centralizada do config
+	if err := config.InitMQTT(brokerURL, clientID, onConnectHandler); err != nil {
+		log.Fatalf("❌ [Error] Conexão MQTT: %v", err)
+	}
+
+	// Mantém a aplicação rodando
 	select {}
 }
 
-func handleVideoURL(
-	client mqtt.Client,
-	msg mqtt.Message,
-) {
-	rawPayload := strings.TrimSpace(
-		string(msg.Payload()),
-	)
-
-	fmt.Printf(
-		"\n📨 [MQTT] Topic: %s | Payload: %q\n",
-		msg.Topic(),
-		rawPayload,
-	)
-
-	if rawPayload == "" {
-		return
-	}
-
-	newURL := normalizeURL(rawPayload)
+func handleVideoURL(client mqtt.Client, msg mqtt.Message) {
+	raw := strings.TrimSpace(string(msg.Payload()))
 
 	mu.Lock()
 	defer mu.Unlock()
 
+	// 1. Se a URL recebida for vazia (ex: usuário saiu da tela / parou o vídeo),
+	// cancela o watcher atual imediatamente e limpa o estado.
+	if raw == "" {
+		if cancelWatcher != nil {
+			cancelWatcher()
+			cancelWatcher = nil
+		}
+		currentURL = ""
+		return
+	}
+
+	newURL := normalizeURL(raw)
+
+	// Se for a mesma URL já em execução, ignora
 	if newURL == currentURL {
 		return
 	}
 
-	// Cancela o watcher anterior.
+	// 2. Se mudou de URL, encerra o monitor que estava rodando antes
 	if cancelWatcher != nil {
-		fmt.Println("🛑 [AoP] Stopping previous monitor...")
 		cancelWatcher()
 		cancelWatcher = nil
 	}
@@ -103,22 +85,13 @@ func handleVideoURL(
 	currentURL = newURL
 	watcherID++
 
-	parsedURL, err := url.Parse(newURL)
-
-	if err != nil ||
-		!strings.HasSuffix(
-			strings.ToLower(parsedURL.Path),
-			".mpd",
-		) {
-
-		fmt.Println("⏹️ [AoP] Non-DASH video detected")
+	parsed, err := url.Parse(newURL)
+	if err != nil || !strings.HasSuffix(strings.ToLower(parsed.Path), ".mpd") {
 		return
 	}
 
-	ctx, cancel := context.WithCancel(
-		context.Background(),
-	)
-
+	// 3. Cria um novo contexto de cancelamento para o novo monitor
+	ctx, cancel := context.WithCancel(context.Background())
 	cancelWatcher = cancel
 	id := watcherID
 
@@ -133,30 +106,12 @@ func handleVideoURL(
 	}()
 }
 
-func normalizeURL(rawPayload string) string {
-	if strings.HasPrefix(rawPayload, "http://") ||
-		strings.HasPrefix(rawPayload, "https://") {
-		return rawPayload
+func normalizeURL(raw string) string {
+	if strings.HasPrefix(raw, "http://") || strings.HasPrefix(raw, "https://") {
+		return raw
 	}
-
-	baseExpress := "http://localhost:8081/live/dash"
-
-	if strings.HasPrefix(
-		rawPayload,
-		"/videoStreamProxy/",
-	) {
-		file := strings.TrimPrefix(
-			rawPayload,
-			"/videoStreamProxy/",
-		)
-
-		return fmt.Sprintf("%s/%s", baseExpress, file)
+	if file, found := strings.CutPrefix(raw, "/videoStreamProxy/"); found {
+		return "http://localhost:8081/live/dash/" + file
 	}
-
-	cleanPath := strings.TrimLeft(rawPayload, "/")
-
-	return fmt.Sprintf(
-		"http://localhost:8081/live/%s",
-		cleanPath,
-	)
+	return "http://localhost:8081/live/" + strings.TrimLeft(raw, "/")
 }
